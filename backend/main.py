@@ -87,6 +87,10 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str]:
     with open(template_path) as f:
         workflow_json = json.load(f)
 
+    # Name each spawned workflow after its task so agents are visible/unique in n8n
+    label = " ".join(task.split()[:5]).translate({ord(c): None for c in '"\\/\n\t'})[:45]
+    workflow_json["name"] = f"06 - Factory Agent · {label}"
+
     # Give the spawned workflow a unique webhook path/id so multiple
     # spawns never collide in n8n.
     for node in workflow_json.get("nodes", []):
