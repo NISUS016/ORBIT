@@ -6,12 +6,12 @@
   <title>Orbit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #0f0f11;
+      background: #000000;
       color: #e2e8f0;
       font-family: 'Inter', sans-serif;
       display: flex;
@@ -22,20 +22,22 @@
     /* Sidebar */
     .sidebar {
       width: 260px;
-      background: #0f0f11;
+      background: #000000;
       border-right: 1px solid #1f1f22;
       display: flex;
       flex-direction: column;
       padding: 16px 12px;
+      z-index: 2;
     }
 
     .nav-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
+      gap: 12px;
+      padding: 10px 14px;
       color: #a0a0a5;
-      font-size: 14px;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
       border-radius: 6px;
       transition: background 0.2s, color 0.2s;
@@ -46,37 +48,38 @@
     }
 
     .nav-item:hover, .nav-item.active {
-      background: #1f1f22;
+      background: #111111;
       color: #ffffff;
     }
 
     .sidebar-section {
-      margin-top: 24px;
+      margin-top: 32px;
     }
 
     .section-title {
-      font-size: 11px;
-      color: #64646a;
+      font-size: 10px;
+      color: #55555a;
       font-weight: 600;
-      letter-spacing: 0.5px;
-      padding: 0 12px;
-      margin-bottom: 8px;
+      letter-spacing: 1px;
+      padding: 0 14px;
+      margin-bottom: 12px;
     }
 
     .history-item {
       font-size: 13px;
-      color: #a0a0a5;
-      padding: 8px 12px;
+      color: #88888e;
+      padding: 8px 14px;
       cursor: pointer;
       border-radius: 6px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 2px;
     }
 
     .history-item:hover {
-      background: #1f1f22;
-      color: #ffffff;
+      background: #111111;
+      color: #e2e8f0;
     }
 
     /* Main Content */
@@ -84,26 +87,31 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: #0a0a0c;
+      background: 
+        linear-gradient(rgba(10, 10, 12, 0.95), rgba(10, 10, 12, 0.95)),
+        url('bgactual.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       position: relative;
     }
 
     .top-nav {
       height: 50px;
-      border-bottom: 1px solid #1f1f22;
+      border-bottom: 1px solid #111111;
       display: flex;
       align-items: center;
       padding: 0 24px;
     }
 
     .tab {
-      font-size: 12px;
-      color: #e2e8f0;
-      font-weight: 500;
-      letter-spacing: 1px;
+      font-size: 11px;
+      color: #a0a0a5;
+      font-weight: 600;
+      letter-spacing: 1.5px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     /* Chat Area */
@@ -116,12 +124,13 @@
       gap: 24px;
       position: relative;
       scroll-behavior: smooth;
+      z-index: 1;
     }
 
-    /* Empty State / Inspiration Match */
+    /* Empty State */
     .empty-state {
       position: absolute;
-      top: 40%;
+      top: 45%;
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
@@ -131,20 +140,21 @@
     }
 
     .orbit-title {
-      font-family: 'Cinzel', serif;
-      font-size: 80px;
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 96px;
       font-weight: 700;
-      color: #e8e8e8;
-      letter-spacing: 4px;
-      margin-bottom: 16px;
+      color: #f0f0f0;
+      letter-spacing: 2px;
+      margin-bottom: 24px;
+      text-shadow: 0 10px 30px rgba(0,0,0,0.8);
     }
 
     .orbit-subtitle {
-      font-size: 15px;
-      color: #8a8a93;
+      font-size: 14px;
+      color: #77777d;
       max-width: 500px;
       margin: 0 auto;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
     /* Messages */
@@ -164,17 +174,16 @@
 
     .msg.user {
       align-self: flex-end;
-      background: #1f1f22;
+      background: #1a1a1a;
       padding: 16px 20px;
-      border-radius: 16px;
-      border-bottom-right-radius: 4px;
+      border-radius: 12px;
       color: #ffffff;
       max-width: 70%;
     }
 
     .msg.bot {
       align-self: flex-start;
-      color: #d1d1d6;
+      color: #cccccc;
       padding: 16px 0;
       max-width: 100%;
     }
@@ -193,15 +202,15 @@
       border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      border: 1px solid #2a2a2e;
+      border: 1px solid #222222;
     }
 
-    .badge.known   { background: transparent; color: #a0a0a5; }
-    .badge.spawned { background: #231b2e; border-color: #3b2d4d; color: #c084fc; }
+    .badge.known   { background: transparent; color: #88888e; }
+    .badge.spawned { background: #1a1525; border-color: #2d243f; color: #a855f7; }
     .badge.error   { background: #3f1515; border-color: #5c1e1e; color: #f87171; }
 
     .msg.loading {
-      color: #64646a;
+      color: #55555a;
       font-style: italic;
     }
 
@@ -212,30 +221,28 @@
       padding: 24px;
       display: flex;
       justify-content: center;
+      z-index: 2;
     }
 
     #input-area {
       width: 100%;
-      max-width: 750px;
-      background: #141416;
-      border: 1px solid #26262b;
-      border-radius: 12px;
+      max-width: 800px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
       display: flex;
       align-items: center;
-      padding: 8px 16px;
-      gap: 12px;
-      transition: border-color 0.2s, background 0.2s;
+      padding: 12px 20px;
+      gap: 16px;
+      transition: border-color 0.2s;
     }
 
     #input-area:focus-within {
-      border-color: #3f3f46;
-      background: #1a1a1c;
+      border-color: #444444;
     }
 
     .plus-icon {
-      color: #64646a;
-      font-size: 20px;
-      cursor: pointer;
+      color: #77777d;
       display: flex;
       align-items: center;
     }
@@ -247,20 +254,48 @@
       color: #e2e8f0;
       font-size: 15px;
       outline: none;
-      padding: 10px 0;
       font-family: inherit;
     }
 
     #user-input::placeholder {
-      color: #5a5a60;
+      color: #66666e;
     }
 
+    /* Micro UI Elements */
+    .micro-ui {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #77777d;
+    }
+
+    .model-dropdown {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    
+    .icon-btn:hover {
+      color: #e2e8f0;
+    }
+
+    /* Secretly make the stylized toggle node function as the send button to keep backend logic intact */
     #send-btn {
       background: #ffffff;
       color: #000000;
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -271,15 +306,14 @@
     }
 
     #send-btn:hover { opacity: 0.8; }
-    #send-btn:disabled { background: #3f3f46; color: #8a8a93; cursor: not-allowed; }
+    #send-btn:disabled { background: #333333; color: #55555a; cursor: not-allowed; }
 
     #send-btn svg {
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       fill: currentColor;
     }
 
-    /* Hide empty state when chatting */
     .chat-active .empty-state {
       display: none;
     }
@@ -291,12 +325,21 @@
   <aside class="sidebar">
     <div class="sidebar-top">
       <button class="nav-item active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         New session
       </button>
-      <button class="nav-item">Capabilities</button>
-      <button class="nav-item">Messaging</button>
-      <button class="nav-item">Artifacts</button>
+      <button class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Capabilities
+      </button>
+      <button class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Messaging
+      </button>
+      <button class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        Artifacts
+      </button>
     </div>
 
     <div class="sidebar-section">
@@ -328,17 +371,32 @@
     <div class="input-container">
       <div id="input-area">
          <span class="plus-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
          </span>
+         
          <input
            id="user-input"
            type="text"
            placeholder="What should we tackle?"
            autocomplete="off"
          />
-         <button id="send-btn" onclick="sendMessage()">
-            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-         </button>
+         
+         <div class="micro-ui">
+            <div class="model-dropdown">
+               Glm 5.2 - Low 
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <div class="icon-btn">
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            </div>
+            <div class="icon-btn">
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+            </div>
+            <!-- The stylized toggle node acting as the send button -->
+            <button id="send-btn" onclick="sendMessage()">
+                <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"></path></svg>
+            </button>
+         </div>
       </div>
     </div>
   </main>
@@ -353,7 +411,6 @@
   function addMessage(role, content, agentUsed, spawned) {
     const area = document.getElementById("chat-area");
     
-    // Hide empty state on first message
     document.body.classList.add("chat-active");
 
     const div = document.createElement("div");
@@ -397,7 +454,6 @@
 
     addMessage("user", message, null, false);
 
-    // Show loading indicator
     const area = document.getElementById("chat-area");
     const loadingDiv = document.createElement("div");
     loadingDiv.classList.add("msg", "bot", "loading");
