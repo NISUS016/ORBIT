@@ -6,6 +6,7 @@ import os
 import json
 import glob
 import uuid
+import asyncio
 from openai import OpenAI
 from dotenv import load_dotenv
 from llm_config import resolve_llm_config, patch_llm_node, fetch_models
@@ -162,7 +163,7 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
         if not workflow_id:
             return ("Factory: workflow creation failed", template_name, design_summary)
 
-        # Activate it
+        # Activate it (n8n activation is async — webhook may take a moment)
         await http.post(
             f"{n8n_base}/api/v1/workflows/{workflow_id}/activate",
             headers=headers,
@@ -172,10 +173,17 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
         webhook_path = created.get("nodes", [{}])[0].get("parameters", {}).get("path", workflow_id)
         webhook_url  = f"{n8n_base}/webhook/{webhook_path}"
 
-        result_resp = await http.post(webhook_url, json={"task": task, "model": model})
-        result_data = result_resp.json()
-        if isinstance(result_data, list):
-            result_data = result_data[0]
+        # Wait for the webhook to be live, retrying activation races
+        result_data = None
+        for attempt in range(5):
+            result_resp = await http.post(webhook_url, json={"task": task, "model": model})
+            result_data = result_resp.json()
+            if isinstance(result_data, list):
+                result_data = result_data[0]
+            err = str(result_data)
+            if "Error in workflow" not in err and result_resp.status_code < 500:
+                break
+            await asyncio.sleep(0.6)
         result = result_data.get("result", str(result_data))
 
     return (result, template_name, design_summary)
