@@ -1,0 +1,80 @@
+{
+  "name": "03 - Summarizer Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "summarizer",
+        "responseMode": "lastNode"
+      },
+      "id": "orbit-summarizer-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "orbit-summarizer-0002"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "REPLACE_LLM_URL",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer REPLACE_LLM_KEY\"\n}",
+        "bodyParametersJson": "={\n  \"model\": \"REPLACE_LLM_MODEL\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You are a summarizer. Summarize the given text in 3-5 clear bullet points. Be concise.\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
+        "options": {}
+      },
+      "id": "orbit-summarizer-llm",
+      "name": "LLM Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "orbit-summarizer-result",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $json.choices[0].message.content }}"
+            }
+          ]
+        }
+      },
+      "id": "orbit-summarizer-set",
+      "name": "Format Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "LLM Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Call": {
+      "main": [
+        [
+          {
+            "node": "Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

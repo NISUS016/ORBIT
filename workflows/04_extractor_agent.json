@@ -1,0 +1,80 @@
+{
+  "name": "04 - Extractor Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extractor",
+        "responseMode": "lastNode"
+      },
+      "id": "orbit-extractor-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "orbit-extractor-0003"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "REPLACE_LLM_URL",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer REPLACE_LLM_KEY\"\n}",
+        "bodyParametersJson": "={\n  \"model\": \"REPLACE_LLM_MODEL\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You are an information extractor. Extract all key information from the given text: names, dates, numbers, locations, and key facts. Return a clear labeled list.\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
+        "options": {}
+      },
+      "id": "orbit-extractor-llm",
+      "name": "LLM Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "orbit-extractor-result",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $json.choices[0].message.content }}"
+            }
+          ]
+        }
+      },
+      "id": "orbit-extractor-set",
+      "name": "Format Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "LLM Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Call": {
+      "main": [
+        [
+          {
+            "node": "Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

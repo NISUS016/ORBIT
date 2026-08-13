@@ -5,8 +5,10 @@ import httpx
 import os
 import json
 import glob
+import uuid
 from openai import OpenAI
 from dotenv import load_dotenv
+from llm_config import resolve_llm_config, patch_llm_node
 
 load_dotenv()
 app = FastAPI()
@@ -19,9 +21,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+LLM_PROVIDER, LLM_BASE_URL, LLM_API_KEY, LLM_MODEL = resolve_llm_config()
+
 client = OpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1",
+    api_key=LLM_API_KEY,
+    base_url=LLM_BASE_URL,
 )
 
 WEBHOOKS = {
@@ -36,7 +40,7 @@ class ChatRequest(BaseModel):
 def classify_task(message: str) -> str:
     """Ask LLM to classify the task into one of 4 categories."""
     resp = client.chat.completions.create(
-        model="openai/gpt-4o-mini",
+        model=LLM_MODEL,
         messages=[
             {
                 "role": "system",
@@ -82,6 +86,14 @@ async def factory_spawn(task: str) -> tuple[str, str]:
     with open(template_path) as f:
         workflow_json = json.load(f)
 
+    # Give the spawned workflow a unique webhook path/id so multiple
+    # spawns never collide in n8n.
+    for node in workflow_json.get("nodes", []):
+        if node.get("type") == "n8n-nodes-base.webhook":
+            node["parameters"]["path"] = f"factory-{uuid.uuid4().hex[:10]}"
+            node["webhookId"] = f"orbit-factory-{uuid.uuid4().hex[:16]}"
+        patch_llm_node(node, LLM_BASE_URL, LLM_API_KEY, LLM_MODEL)
+
     n8n_base = os.getenv("N8N_BASE_URL", "http://localhost:5678")
     n8n_key  = os.getenv("N8N_API_KEY", "")
     headers  = {"X-N8N-API-KEY": n8n_key, "Content-Type": "application/json"}
@@ -100,9 +112,8 @@ async def factory_spawn(task: str) -> tuple[str, str]:
             return ("Factory: workflow creation failed", template_name)
 
         # Activate it
-        await http.patch(
-            f"{n8n_base}/api/v1/workflows/{workflow_id}",
-            json={"active": True},
+        await http.post(
+            f"{n8n_base}/api/v1/workflows/{workflow_id}/activate",
             headers=headers,
         )
 
