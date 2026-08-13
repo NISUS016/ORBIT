@@ -4,7 +4,6 @@ from pydantic import BaseModel
 import httpx
 import os
 import json
-import glob
 import uuid
 import asyncio
 from openai import OpenAI
@@ -77,8 +76,9 @@ async def call_webhook(url: str, task: str, model: str) -> str:
         return data.get("result", str(data))
 
 def design_agent(task: str, model: str) -> dict:
-    """Ask the LLM (guided by ORCHESTRATOR_GUIDE) to design a specialist
-    agent for a novel task. Returns {name, system_prompt, summary}."""
+    """Ask the LLM (guided by ORCHESTRATOR_GUIDE) to design a NEW specialist
+    workflow for a novel task. Returns {name, summary, steps:[{title,system_prompt}]}."""
+    fallback_prompt = "You are a helpful AI assistant. Complete the given task as best you can."
     try:
         resp = client.chat.completions.create(
             model=model,
@@ -86,7 +86,7 @@ def design_agent(task: str, model: str) -> dict:
                 {"role": "system", "content": ORCHESTRATOR_GUIDE},
                 {"role": "user", "content": task},
             ],
-            max_tokens=700,
+            max_tokens=900,
             response_format={"type": "json_object"},
         )
         text = resp.choices[0].message.content.strip()
@@ -95,56 +95,142 @@ def design_agent(task: str, model: str) -> dict:
         spec = json.loads(text)
     except Exception:
         spec = {}
+
+    def _s(key: str) -> str:
+        return str(spec.get(key, "") or "").strip()
+
+    steps = spec.get("steps") if isinstance(spec, dict) else None
+    if not isinstance(steps, list):
+        prompt = _s("system_prompt")
+        steps = [{"title": "Agent", "system_prompt": prompt or fallback_prompt}]
+    clean = []
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        title = str(s.get("title") or "Agent").strip()
+        prompt = str(s.get("system_prompt") or s.get("content") or "").strip()
+        if not prompt:
+            prompt = fallback_prompt
+        clean.append({"title": title[:40], "system_prompt": prompt[:400]})
+        if len(clean) == 4:
+            break
+    if not clean:
+        clean = [{"title": "Agent", "system_prompt": fallback_prompt}]
+
     return {
-        "name": str(spec.get("name", "")).strip(),
-        "system_prompt": str(spec.get("system_prompt", "")).strip(),
-        "summary": str(spec.get("summary", "")).strip(),
+        "name": _s("name") or "Factory Agent",
+        "summary": _s("summary"),
+        "steps": clean,
     }
 
-def inject_system_prompt(body_json: str, prompt: str) -> str:
-    """Swap the REPLACE_SYSTEM_PROMPT placeholder inside an n8n HTTP node
-    body with the generated prompt (JSON-escaped)."""
-    safe = prompt.replace("{{", "(").replace("}}", ")")
-    escaped = json.dumps(safe)[1:-1]  # strip outer quotes, keep escapes
-    return body_json.replace("REPLACE_SYSTEM_PROMPT", escaped)
+def build_workflow(spec: dict) -> dict:
+    """Assemble a NEW n8n workflow JSON from the LLM's design:
+    Webhook -> LLM step 1 -> ... -> LLM step N -> Format -> respond.
+
+    Each step is its own LLM call node: step 1 sees the user's task,
+    later steps see the previous step's output.
+    """
+    steps = spec["steps"]
+    uid = uuid.uuid4().hex[:10]
+
+    nodes = [{
+        "parameters": {
+            "httpMethod": "POST",
+            "path": f"factory-{uid}",
+            "responseMode": "lastNode",
+        },
+        "id": f"orbit-{uid}-webhook",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [0, 0],
+        "webhookId": f"orbit-factory-{uuid.uuid4().hex[:16]}",
+    }]
+    connections = {}
+
+    prev = "Webhook"
+    for i, step in enumerate(steps, start=1):
+        title = f"Step {i}: {step['title']}"
+        system = step["system_prompt"].replace("{{", "(").replace("}}", ")")
+        # JSON.stringify keeps multi-line/quoted model output valid inside the JSON body
+        user_input = (
+            "{{ JSON.stringify($json.body.task) }}"
+            if i == 1
+            else "{{ JSON.stringify($json.choices[0].message.content) }}"
+        )
+        body = "=" + json.dumps({
+            "model": "REPLACE_LLM_MODEL",
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_input},
+            ],
+        }, indent=2)
+        # content is an expression, not a literal string — unquote it
+        body = body.replace('"content": "%s"' % user_input, f'"content": {user_input}')
+        nodes.append({
+            "parameters": {
+                "requestMethod": "POST",
+                "url": "REPLACE_LLM_URL",
+                "responseFormat": "json",
+                "jsonParameters": True,
+                "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer REPLACE_LLM_KEY\"\n}",
+                "bodyParametersJson": body,
+                "options": {},
+            },
+            "id": f"orbit-{uid}-llm{i}",
+            "name": title,
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 2,
+            "position": [220 * i, 60 * (i % 2)],
+        })
+        connections[prev] = {"main": [[{"node": title, "type": "main", "index": 0}]]}
+        prev = title
+
+    nodes.append({
+        "parameters": {
+            "assignments": {
+                "assignments": [{
+                    "id": f"orbit-{uid}-result",
+                    "name": "result",
+                    "type": "string",
+                    "value": "={{ $json.choices[0].message.content }}",
+                }]
+            }
+        },
+        "id": f"orbit-{uid}-set",
+        "name": "Format Result",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [220 * (len(steps) + 1), 0],
+    })
+    connections[prev] = {"main": [[{"node": "Format Result", "type": "main", "index": 0}]]}
+
+    workflow_json = {
+        "name": "06 - Factory Agent",
+        "nodes": nodes,
+        "connections": connections,
+        "settings": {"executionOrder": "v1"},
+    }
+    for node in nodes:
+        patch_llm_node(node, LLM_BASE_URL, LLM_API_KEY, LLM_MODEL)
+    return workflow_json
 
 async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
     """
-    Pick a template JSON from /templates/, ask the LLM to design a
-    specialist agent for it, push to n8n, activate, call its webhook,
-    return (result, template_name, agent_summary).
+    Ask the LLM to design a NEW specialist workflow for a novel task,
+    build its JSON, push to n8n, activate, call its webhook.
+    Returns (result, agent_name, agent_summary).
     """
-    template_files = glob.glob("../templates/*.json")
-    if not template_files:
-        return ("No templates available yet — template guy is still working!", "none", "")
+    # The LLM designs a NEW workflow for THIS task (structure + brains)
+    spec = design_agent(task, model)
+    design_name = spec["name"]
+    design_summary = spec["summary"]
 
-    # Pick the first template (or let LLM pick — keep it simple for MVP)
-    template_path = template_files[0]
-    template_name = os.path.basename(template_path)
+    workflow_json = build_workflow(spec)
 
-    with open(template_path) as f:
-        workflow_json = json.load(f)
-
-    # The LLM designs a unique agent brain for THIS task
-    design = design_agent(task, model)
-    design_name = design["name"] or "Factory Agent"
-    design_summary = design["summary"] or ""
-
-    # Name each spawned workflow after its task so agents are visible/unique in n8n
+    # Name each spawned workflow after its agent so it's visible/unique in n8n
     label = " ".join(task.split()[:5]).translate({ord(c): None for c in '"\\/\n\t'})[:45]
     workflow_json["name"] = f"06 - {design_name} · {label}"
-
-    # Give the spawned workflow a unique webhook path/id so multiple
-    # spawns never collide in n8n, and inject the designed brain.
-    for node in workflow_json.get("nodes", []):
-        if node.get("type") == "n8n-nodes-base.webhook":
-            node["parameters"]["path"] = f"factory-{uuid.uuid4().hex[:10]}"
-            node["webhookId"] = f"orbit-factory-{uuid.uuid4().hex[:16]}"
-        if node.get("type") == "n8n-nodes-base.httpRequest" and design["system_prompt"]:
-            body = node.get("parameters", {}).get("bodyParametersJson", "")
-            if body:
-                node["parameters"]["bodyParametersJson"] = inject_system_prompt(body, design["system_prompt"])
-        patch_llm_node(node, LLM_BASE_URL, LLM_API_KEY, LLM_MODEL)
 
     n8n_base = os.getenv("N8N_BASE_URL", "http://localhost:5678")
     n8n_key  = os.getenv("N8N_API_KEY", "")
@@ -161,7 +247,7 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
         workflow_id = created.get("id")
 
         if not workflow_id:
-            return ("Factory: workflow creation failed", template_name, design_summary)
+            return ("Factory: workflow creation failed", design_name, design_summary)
 
         # Activate it (n8n activation is async — webhook may take a moment)
         await http.post(
@@ -186,7 +272,7 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
             await asyncio.sleep(0.6)
         result = result_data.get("result", str(result_data))
 
-    return (result, template_name, design_summary)
+    return (result, design_name, design_summary)
 
 
 @app.post("/chat")
