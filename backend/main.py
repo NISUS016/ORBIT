@@ -8,7 +8,7 @@ import glob
 import uuid
 from openai import OpenAI
 from dotenv import load_dotenv
-from llm_config import resolve_llm_config, patch_llm_node
+from llm_config import resolve_llm_config, patch_llm_node, fetch_models
 
 load_dotenv()
 app = FastAPI()
@@ -36,11 +36,12 @@ WEBHOOKS = {
 
 class ChatRequest(BaseModel):
     message: str
+    model: str | None = None
 
-def classify_task(message: str) -> str:
+def classify_task(message: str, model: str) -> str:
     """Ask LLM to classify the task into one of 4 categories."""
     resp = client.chat.completions.create(
-        model=LLM_MODEL,
+        model=model,
         messages=[
             {
                 "role": "system",
@@ -60,17 +61,17 @@ def classify_task(message: str) -> str:
     )
     return resp.choices[0].message.content.strip().lower()
 
-async def call_webhook(url: str, task: str) -> str:
+async def call_webhook(url: str, task: str, model: str) -> str:
     """POST to an n8n webhook and return the result."""
     async with httpx.AsyncClient(timeout=30) as http:
-        resp = await http.post(url, json={"task": task})
+        resp = await http.post(url, json={"task": task, "model": model})
         data = resp.json()
         # n8n returns a list by default
         if isinstance(data, list):
             data = data[0]
         return data.get("result", str(data))
 
-async def factory_spawn(task: str) -> tuple[str, str]:
+async def factory_spawn(task: str, model: str) -> tuple[str, str]:
     """
     Pick a template JSON from /templates/, push it to n8n API,
     activate it, call its webhook, return (result, template_name).
@@ -121,7 +122,7 @@ async def factory_spawn(task: str) -> tuple[str, str]:
         webhook_path = created.get("nodes", [{}])[0].get("parameters", {}).get("path", workflow_id)
         webhook_url  = f"{n8n_base}/webhook/{webhook_path}"
 
-        result_resp = await http.post(webhook_url, json={"task": task})
+        result_resp = await http.post(webhook_url, json={"task": task, "model": model})
         result_data = result_resp.json()
         if isinstance(result_data, list):
             result_data = result_data[0]
@@ -132,22 +133,36 @@ async def factory_spawn(task: str) -> tuple[str, str]:
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    task_type = classify_task(req.message)
-    spawned   = False
+    model      = (req.model or LLM_MODEL).strip() or LLM_MODEL
+    task_type  = classify_task(req.message, model)
+    spawned    = False
     agent_used = task_type
 
     if task_type in WEBHOOKS and WEBHOOKS[task_type]:
         # Route to known sub-agent
-        result = await call_webhook(WEBHOOKS[task_type], req.message)
+        result = await call_webhook(WEBHOOKS[task_type], req.message, model)
     else:
         # Novel task — try factory
-        result, agent_used = await factory_spawn(req.message)
+        result, agent_used = await factory_spawn(req.message, model)
         spawned = True
 
     return {
         "response":   result,
         "agent_used": agent_used,
         "spawned":    spawned,
+        "model":      model,
+    }
+
+@app.get("/models")
+async def models():
+    try:
+        model_ids = await fetch_models(LLM_BASE_URL, LLM_API_KEY)
+    except Exception:
+        model_ids = []
+    return {
+        "provider": LLM_PROVIDER,
+        "model":    LLM_MODEL,
+        "models":   model_ids,
     }
 
 @app.get("/health")

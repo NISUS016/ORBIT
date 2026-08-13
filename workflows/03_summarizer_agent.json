@@ -21,7 +21,7 @@
         "responseFormat": "json",
         "jsonParameters": true,
         "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer REPLACE_LLM_KEY\"\n}",
-        "bodyParametersJson": "={\n  \"model\": \"REPLACE_LLM_MODEL\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You are a summarizer. Summarize the given text in 3-5 clear bullet points. Be concise.\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
+        "bodyParametersJson": "={\n  \"model\": \"{{ $json.body.model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You are a summarizer. Summarize the given text in 3-5 clear bullet points. Be concise.\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
         "options": {}
       },
       "id": "orbit-summarizer-llm",
@@ -78,3 +78,5 @@
     "executionOrder": "v1"
   }
 }
+
+

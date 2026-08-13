@@ -1,5 +1,6 @@
 import os
 
+import httpx
 from dotenv import load_dotenv
 
 for candidate in ("backend/.env", ".env"):
@@ -56,3 +57,13 @@ def patch_llm_node(node, base_url, api_key, model):
     for header in params.get("headerParameters", {}).get("parameters", []):
         if header.get("name") == "Authorization":
             header["value"] = f"Bearer {api_key}"
+
+
+async def fetch_models(base_url: str, api_key: str) -> list[str]:
+    async with httpx.AsyncClient(timeout=15) as http:
+        resp = await http.get(
+            f"{base_url}/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        resp.raise_for_status()
+        return [m["id"] for m in resp.json().get("data", [])]

@@ -279,6 +279,49 @@
       fill: currentColor;
     }
 
+    /* Model bar */
+    .model-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 0 2px;
+    }
+
+    .model-chip {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #a0a0a5;
+      background: #16161a;
+      border: 1px solid #26262b;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .model-select {
+      font-family: inherit;
+      font-size: 12.5px;
+      color: #d1d1d6;
+      background: #16161a;
+      border: 1px solid #26262b;
+      border-radius: 20px;
+      padding: 4px 12px;
+      max-width: 320px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .model-select:hover { border-color: #3a3a42; }
+
+    .model-tag {
+      font-size: 11px;
+      color: #6a6a72;
+      margin-left: 8px;
+      font-weight: 400;
+    }
+
     /* Hide empty state when chatting */
     .chat-active .empty-state {
       display: none;
@@ -325,6 +368,11 @@
        </div>
     </div>
 
+    <div class="model-bar">
+      <span class="model-chip" id="provider-chip">loading…</span>
+      <select id="model-select" class="model-select" aria-label="Model"></select>
+    </div>
+
     <div class="input-container">
       <div id="input-area">
          <span class="plus-icon">
@@ -345,12 +393,45 @@
 
 <script>
   const BACKEND = "http://localhost:8000";
+  let currentModel = null;
+
+  async function loadModels() {
+    const chip = document.getElementById("provider-chip");
+    const sel = document.getElementById("model-select");
+    try {
+      const resp = await fetch(`${BACKEND}/models`);
+      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+      const data = await resp.json();
+      chip.textContent = data.provider;
+      sel.innerHTML = "";
+      for (const m of data.models) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        if (m === data.model) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      currentModel = data.model;
+      sel.disabled = data.models.length === 0;
+    } catch (err) {
+      chip.textContent = "offline";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "backend offline — model fixed";
+      sel.appendChild(opt);
+      sel.disabled = true;
+    }
+  }
+
+  document.getElementById("model-select").addEventListener("change", (e) => {
+    currentModel = e.target.value || null;
+  });
 
   document.getElementById("user-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendMessage();
   });
 
-  function addMessage(role, content, agentUsed, spawned) {
+  function addMessage(role, content, agentUsed, spawned, model) {
     const area = document.getElementById("chat-area");
     
     // Hide empty state on first message
@@ -372,6 +453,13 @@
         : `Orbit: ${agentUsed}`;
 
       meta.appendChild(badge);
+
+      if (model) {
+        const tag = document.createElement("span");
+        tag.classList.add("model-tag");
+        tag.textContent = `· ${model}`;
+        meta.appendChild(tag);
+      }
 
       const text = document.createElement("div");
       text.classList.add("result-text");
@@ -409,14 +497,14 @@
       const resp = await fetch(`${BACKEND}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, model: currentModel }),
       });
 
       if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
 
       const data = await resp.json();
       loadingDiv.remove();
-      addMessage("bot", data.response, data.agent_used, data.spawned);
+      addMessage("bot", data.response, data.agent_used, data.spawned, data.model);
 
     } catch (err) {
       loadingDiv.remove();
@@ -429,6 +517,8 @@
     btn.disabled = false;
     input.focus();
   }
+
+  loadModels();
 </script>
 
 </body>
