@@ -21,7 +21,7 @@
         "responseFormat": "json",
         "jsonParameters": true,
         "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer REPLACE_LLM_KEY\"\n}",
-        "bodyParametersJson": "={\n  \"model\": \"{{ $json.body.model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You are a helpful AI assistant. Complete the given task as best you can.\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
+        "bodyParametersJson": "={\n  \"model\": \"{{ $json.body.model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"REPLACE_SYSTEM_PROMPT\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.body.task }}\" }\n  ]\n}",
         "options": {}
       },
       "id": "orbit-template-llm",

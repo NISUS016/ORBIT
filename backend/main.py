@@ -13,6 +13,10 @@ from llm_config import resolve_llm_config, patch_llm_node, fetch_models
 load_dotenv()
 app = FastAPI()
 
+# The orchestrator's guide: tells the LLM how to design each spawned agent
+with open(os.path.join(os.path.dirname(__file__), "orchestrator_instructions.md"), encoding="utf-8") as _guide:
+    ORCHESTRATOR_GUIDE = _guide.read()
+
 # Allow UI (running on localhost:any port) to call us
 app.add_middleware(
     CORSMiddleware,
@@ -71,14 +75,47 @@ async def call_webhook(url: str, task: str, model: str) -> str:
             data = data[0]
         return data.get("result", str(data))
 
-async def factory_spawn(task: str, model: str) -> tuple[str, str]:
+def design_agent(task: str, model: str) -> dict:
+    """Ask the LLM (guided by ORCHESTRATOR_GUIDE) to design a specialist
+    agent for a novel task. Returns {name, system_prompt, summary}."""
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": ORCHESTRATOR_GUIDE},
+                {"role": "user", "content": task},
+            ],
+            max_tokens=700,
+            response_format={"type": "json_object"},
+        )
+        text = resp.choices[0].message.content.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+        spec = json.loads(text)
+    except Exception:
+        spec = {}
+    return {
+        "name": str(spec.get("name", "")).strip(),
+        "system_prompt": str(spec.get("system_prompt", "")).strip(),
+        "summary": str(spec.get("summary", "")).strip(),
+    }
+
+def inject_system_prompt(body_json: str, prompt: str) -> str:
+    """Swap the REPLACE_SYSTEM_PROMPT placeholder inside an n8n HTTP node
+    body with the generated prompt (JSON-escaped)."""
+    safe = prompt.replace("{{", "(").replace("}}", ")")
+    escaped = json.dumps(safe)[1:-1]  # strip outer quotes, keep escapes
+    return body_json.replace("REPLACE_SYSTEM_PROMPT", escaped)
+
+async def factory_spawn(task: str, model: str) -> tuple[str, str, str]:
     """
-    Pick a template JSON from /templates/, push it to n8n API,
-    activate it, call its webhook, return (result, template_name).
+    Pick a template JSON from /templates/, ask the LLM to design a
+    specialist agent for it, push to n8n, activate, call its webhook,
+    return (result, template_name, agent_summary).
     """
     template_files = glob.glob("../templates/*.json")
     if not template_files:
-        return ("No templates available yet — template guy is still working!", "none")
+        return ("No templates available yet — template guy is still working!", "none", "")
 
     # Pick the first template (or let LLM pick — keep it simple for MVP)
     template_path = template_files[0]
@@ -87,16 +124,25 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str]:
     with open(template_path) as f:
         workflow_json = json.load(f)
 
+    # The LLM designs a unique agent brain for THIS task
+    design = design_agent(task, model)
+    design_name = design["name"] or "Factory Agent"
+    design_summary = design["summary"] or ""
+
     # Name each spawned workflow after its task so agents are visible/unique in n8n
     label = " ".join(task.split()[:5]).translate({ord(c): None for c in '"\\/\n\t'})[:45]
-    workflow_json["name"] = f"06 - Factory Agent · {label}"
+    workflow_json["name"] = f"06 - {design_name} · {label}"
 
     # Give the spawned workflow a unique webhook path/id so multiple
-    # spawns never collide in n8n.
+    # spawns never collide in n8n, and inject the designed brain.
     for node in workflow_json.get("nodes", []):
         if node.get("type") == "n8n-nodes-base.webhook":
             node["parameters"]["path"] = f"factory-{uuid.uuid4().hex[:10]}"
             node["webhookId"] = f"orbit-factory-{uuid.uuid4().hex[:16]}"
+        if node.get("type") == "n8n-nodes-base.httpRequest" and design["system_prompt"]:
+            body = node.get("parameters", {}).get("bodyParametersJson", "")
+            if body:
+                node["parameters"]["bodyParametersJson"] = inject_system_prompt(body, design["system_prompt"])
         patch_llm_node(node, LLM_BASE_URL, LLM_API_KEY, LLM_MODEL)
 
     n8n_base = os.getenv("N8N_BASE_URL", "http://localhost:5678")
@@ -114,7 +160,7 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str]:
         workflow_id = created.get("id")
 
         if not workflow_id:
-            return ("Factory: workflow creation failed", template_name)
+            return ("Factory: workflow creation failed", template_name, design_summary)
 
         # Activate it
         await http.post(
@@ -132,7 +178,7 @@ async def factory_spawn(task: str, model: str) -> tuple[str, str]:
             result_data = result_data[0]
         result = result_data.get("result", str(result_data))
 
-    return (result, template_name)
+    return (result, template_name, design_summary)
 
 
 @app.post("/chat")
@@ -145,16 +191,18 @@ async def chat(req: ChatRequest):
     if task_type in WEBHOOKS and WEBHOOKS[task_type]:
         # Route to known sub-agent
         result = await call_webhook(WEBHOOKS[task_type], req.message, model)
+        agent_summary = ""
     else:
-        # Novel task — try factory
-        result, agent_used = await factory_spawn(req.message, model)
+        # Novel task — factory designs a specialist agent
+        result, agent_used, agent_summary = await factory_spawn(req.message, model)
         spawned = True
 
     return {
-        "response":   result,
-        "agent_used": agent_used,
-        "spawned":    spawned,
-        "model":      model,
+        "response":     result,
+        "agent_used":   agent_used,
+        "spawned":      spawned,
+        "agent_summary": agent_summary,
+        "model":        model,
     }
 
 @app.get("/models")

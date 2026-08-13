@@ -322,6 +322,14 @@
       font-weight: 400;
     }
 
+    .agent-summary {
+      font-size: 12px;
+      color: #c084fc;
+      font-style: italic;
+      margin-top: 6px;
+      opacity: 0.85;
+    }
+
     /* Hide empty state when chatting */
     .chat-active .empty-state {
       display: none;
@@ -431,7 +439,7 @@
     if (e.key === "Enter") sendMessage();
   });
 
-  function addMessage(role, content, agentUsed, spawned, model) {
+  function addMessage(role, content, agentUsed, spawned, model, agentSummary) {
     const area = document.getElementById("chat-area");
     
     // Hide empty state on first message
@@ -459,6 +467,13 @@
         tag.classList.add("model-tag");
         tag.textContent = `· ${model}`;
         meta.appendChild(tag);
+      }
+
+      if (spawned && agentSummary) {
+        const summary = document.createElement("div");
+        summary.classList.add("agent-summary");
+        summary.textContent = agentSummary;
+        meta.appendChild(summary);
       }
 
       const text = document.createElement("div");
@@ -504,7 +519,7 @@
 
       const data = await resp.json();
       loadingDiv.remove();
-      addMessage("bot", data.response, data.agent_used, data.spawned, data.model);
+      addMessage("bot", data.response, data.agent_used, data.spawned, data.model, data.agent_summary);
 
     } catch (err) {
       loadingDiv.remove();
