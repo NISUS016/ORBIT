@@ -1,6 +1,11 @@
 .env
+credentials.json
 __pycache__/
 *.pyc
 .venv/
 venv/
 .DS_Store
+logs/
+ui/backend.js
+graphify-out/
+

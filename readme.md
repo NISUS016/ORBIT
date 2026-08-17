@@ -2,20 +2,32 @@
 
 FastAPI backend that classifies chat tasks (research / summarize / extract / novel) and routes them to n8n sub-agent webhooks, spawning new agents from templates for novel tasks.
 
+> **New to the project? Read [`SETUP.md`](SETUP.md) first** — full first-time configuration walkthrough (n8n, credentials, providers, troubleshooting).
+
+## Quickstart (one command)
+
+```bash
+python scripts/start.py     # or double-click start.bat
+```
+
+Starts whatever is missing (n8n → backend → deploys workflows → UI server), skips anything already running, and opens the browser. Stop everything with Ctrl+C.
+
 ## Structure
 
-- `backend/` — FastAPI server (`main.py`)
+- `backend/` — FastAPI server (`main.py` → `routes.py` + modules)
 - `workflows/` — n8n workflow exports
 - `templates/` — agent template JSONs for the factory
 - `ui/` — frontend
-- `scripts/` — deploy scripts
+- `scripts/` — start / setup / deploy scripts
+- `SPECS.md` — architecture + SSE event protocol docs
 
-## Run backend
+## Manual start (if you prefer)
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+n8n start                  # 1. n8n (port 5678)
+python scripts/deploy.py   # 2. push workflows, wires webhooks into .env (once)
+cd backend && uvicorn main:app --reload --port 8000   # 3. backend
+python -m http.server 8080 --directory ui             # 4. UI → http://localhost:8080
 ```
 
 ## n8n fallback (if the n8n teammate is stuck)

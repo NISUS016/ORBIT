@@ -1,45 +1,51 @@
 import os
+from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
 
-for candidate in ("backend/.env", ".env"):
-    if os.path.exists(candidate):
-        load_dotenv(candidate, override=True)
+# Legacy .env support: keep reading backend/.env so old setups still work,
+# but credentials.json (via providers.py) is the primary source of truth.
+for candidate in (Path(__file__).parent / ".env", Path.cwd() / ".env"):
+    if candidate.exists():
+        load_dotenv(candidate, override=False)
         break
 
-BASE_URLS = {
-    "groq": "https://api.groq.com/openai/v1",
-    "openrouter": "https://openrouter.ai/api/v1",
-}
-
-DEFAULT_MODELS = {
-    "groq": "llama-3.3-70b-versatile",
-    "openrouter": "openai/gpt-4o-mini",
-}
-
-KEY_ENVS = {
-    "groq": "GROQ_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
-}
+import providers  # noqa: E402
+from providers import get_catalog  # noqa: E402
 
 
-def resolve_llm_config():
-    provider = (os.getenv("LLM_PROVIDER") or "").lower()
+def resolve_llm_config() -> tuple[str, str, str, str]:
+    """Live-resolve the active LLM provider from the JSON store + catalog.
+    Returns (provider, base_url, api_key, model)."""
+    provider = providers.get_active_provider().lower() or ""
+    catalog = get_catalog()
+
     if not provider:
-        if os.getenv("GROQ_API_KEY"):
+        # Legacy inference: pick the provider whose key is present
+        if providers.get_setting("GROQ_API_KEY"):
             provider = "groq"
-        elif os.getenv("OPENROUTER_API_KEY"):
+        elif providers.get_setting("OPENROUTER_API_KEY"):
             provider = "openrouter"
-    if provider in BASE_URLS:
-        base_url = BASE_URLS[provider]
-        api_key = os.getenv(KEY_ENVS[provider], "")
-        model = os.getenv("LLM_MODEL") or DEFAULT_MODELS[provider]
-    else:
-        base_url = os.getenv("LLM_BASE_URL", "") or BASE_URLS["openrouter"]
-        api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY", "")
-        model = os.getenv("LLM_MODEL") or DEFAULT_MODELS["openrouter"]
-    return provider, base_url, api_key, model
+
+    info = catalog.get(provider)
+    if info:
+        base_url = info["base_url"]
+        api_key = info.get("api_key", "") or providers.get_setting(
+            info.get("key_env", ""), ""
+        )
+        model = providers.get_setting("LLM_MODEL", "") or info.get("default_model", "") or ""
+        return provider, base_url, api_key, model
+
+    # Fallback: custom provider via explicit env vars
+    base_url = (providers.get_setting("LLM_BASE_URL", "") or "").rstrip("/") or catalog.get(
+        "openrouter", {}
+    ).get("base_url", "https://openrouter.ai/api/v1")
+    api_key = providers.get_setting("LLM_API_KEY", "") or providers.get_setting(
+        "OPENROUTER_API_KEY", ""
+    )
+    model = providers.get_setting("LLM_MODEL", "") or "openai/gpt-4o-mini"
+    return provider or "custom", base_url, api_key, model
 
 
 def patch_llm_node(node, base_url, api_key, model):

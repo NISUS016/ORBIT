@@ -1,34 +1,39 @@
 ﻿"""
 deploy.py — pushes all workflow JSONs + factory template to n8n via API.
 Run: python scripts/deploy.py
-Requires N8N_BASE_URL and N8N_API_KEY in backend/.env (or ./.env).
+Requires N8N_BASE_URL and N8N_API_KEY in backend/credentials.json (or .env).
 Patches each LLM node with the configured provider (see backend/llm_config.py),
 deploys workflows/ (activated) and templates/ (not activated), then writes
-the live webhook URLs back into backend/.env.
+the live webhook URLs back into backend/credentials.json.
 """
 
 import glob
 import json
 import os
 import sys
+from pathlib import Path
 
 import httpx
-from dotenv import set_key
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+ROOT = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT / "backend"
+
+sys.path.insert(0, str(BACKEND_DIR))
+import providers  # noqa: E402
 from llm_config import resolve_llm_config, patch_llm_node  # noqa: E402
 
-N8N_BASE = os.getenv("N8N_BASE_URL", "http://localhost:5678").rstrip("/")
-N8N_KEY = os.getenv("N8N_API_KEY", "")
+N8N_BASE = providers.get_n8n_base_url()
+N8N_KEY = providers.get_n8n_api_key()
 HEADERS = {"X-N8N-API-KEY": N8N_KEY, "Content-Type": "application/json"}
 
 WEBHOOK_ENV_MAP = {
-    "research": "N8N_RESEARCH_WEBHOOK",
-    "summarizer": "N8N_SUMMARIZER_WEBHOOK",
-    "extractor": "N8N_EXTRACTOR_WEBHOOK",
+    "research": "research",
+    "summarizer": "summarizer",
+    "extractor": "extractor",
 }
 
-ENV_PATH = "backend/.env" if os.path.exists("backend/.env") else ".env"
+WORKFLOWS_GLOB = str(BACKEND_DIR.parent / "workflows" / "*.json")
+TEMPLATES_GLOB = str(BACKEND_DIR.parent / "templates" / "*.json")
 
 
 def find_workflow_id(client: httpx.Client, name: str) -> str | None:
@@ -82,7 +87,7 @@ def deploy_file(
 
 def main() -> None:
     if not N8N_KEY:
-        raise SystemExit("N8N_API_KEY is missing. Add it to backend/.env.")
+        raise SystemExit("N8N_API_KEY is missing. Add it to backend/credentials.json.")
 
     provider, base_url, api_key, model = resolve_llm_config()
     print(f"LLM provider: {provider} | model: {model} | base: {base_url}")
@@ -91,20 +96,29 @@ def main() -> None:
 
     client = httpx.Client(timeout=30, headers=HEADERS)
     try:
+        # Preflight n8n connectivity with a friendly failure
+        try:
+            client.get(f"{N8N_BASE}/api/v1/workflows")
+        except httpx.ConnectError:
+            raise SystemExit(
+                f"\nCannot reach n8n at {N8N_BASE}.\n"
+                "Is it running? Start it with `n8n start` (or docker), then re-run."
+            )
+
         print("\nDeploying sub-agent workflows (workflows/)...")
         wired = {}
-        for path in sorted(glob.glob("workflows/*.json")):
+        for path in sorted(glob.glob(WORKFLOWS_GLOB)):
             webhook_path, _ = deploy_file(client, path, activate=True, llm=(base_url, api_key, model))
             if webhook_path and webhook_path in WEBHOOK_ENV_MAP:
-                wired[WEBHOOK_ENV_MAP[webhook_path]] = f"{N8N_BASE}/webhook/{webhook_path}"
+                wired[webhook_path] = f"{N8N_BASE}/webhook/{webhook_path}"
 
         print("\nDeploying factory templates (templates/) - NOT activating...")
-        for path in sorted(glob.glob("templates/*.json")):
+        for path in sorted(glob.glob(TEMPLATES_GLOB)):
             deploy_file(client, path, activate=False, llm=(base_url, api_key, model))
 
-        for env_key, url in wired.items():
-            set_key(ENV_PATH, env_key, url)
-            print(f"\n  [WIRED] {env_key}={url} -> {ENV_PATH}")
+        for name, url in wired.items():
+            providers.set_webhook(name, url)
+            print(f"\n  [WIRED] {name}={url} -> backend/credentials.json")
 
         print(f"\nDone! Check n8n at {N8N_BASE}")
     finally:

@@ -285,7 +285,8 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      padding: 8px 0 2px;
+      padding: 10px 16px 6px;
+      flex-wrap: wrap;
     }
 
     .model-chip {
@@ -302,18 +303,35 @@
 
     .model-select {
       font-family: inherit;
-      font-size: 12.5px;
+      font-size: 13px;
       color: #d1d1d6;
       background: #16161a;
       border: 1px solid #26262b;
-      border-radius: 20px;
-      padding: 4px 12px;
-      max-width: 320px;
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-width: 150px;
+      max-width: 100%;
+      width: auto;
+      height: 36px;
       outline: none;
       cursor: pointer;
+      appearance: auto;
+      text-overflow: ellipsis;
     }
 
     .model-select:hover { border-color: #3a3a42; }
+
+    #provider-select {
+      min-width: 170px;
+      max-width: 260px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+
+    #model-select {
+      max-width: 360px;
+      flex: 1 1 200px;
+    }
 
     .model-tag {
       font-size: 11px;
@@ -330,10 +348,443 @@
       opacity: 0.85;
     }
 
+    /* Artifact window (workflow-in-progress) */
+    .artifact-holder {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .artifact {
+      background: #121214;
+      border: 1px solid #26262b;
+      border-radius: 12px;
+      padding: 14px 16px;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .artifact-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .artifact-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .artifact-summary {
+      font-size: 12.5px;
+      color: #8a8a93;
+      font-style: italic;
+      margin-bottom: 12px;
+    }
+
+    .artifact-graph {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px;
+      border: 1px dashed #26262b;
+      border-radius: 8px;
+      background: #0e0e10;
+    }
+
+    .node-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #1c1c20;
+      border: 1px solid #2a2a2e;
+      color: #a0a0a5;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 7px;
+      opacity: 0;
+      transform: translateY(6px) scale(0.92);
+      transition: opacity 0.35s ease, transform 0.35s ease, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .node-chip.revealed {
+      opacity: 1;
+      transform: none;
+    }
+
+    .node-chip.active {
+      color: #e9d5ff;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 1px #7c3aed66, 0 0 14px #7c3aed44;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .node-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3f3f46;
+    }
+
+    .node-chip.active .node-dot { background: #a78bfa; }
+
+    .node-arrow {
+      color: #3f3f46;
+      font-size: 13px;
+      animation: fadeIn 0.3s;
+    }
+
+    .artifact-status {
+      margin-top: 10px;
+      font-size: 11.5px;
+      color: #64646a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .artifact-status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #7c3aed;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
     /* Hide empty state when chatting */
     .chat-active .empty-state {
       display: none;
     }
+
+    .hidden { display: none !important; }
+
+    /* Workflows page */
+    .workflows-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 10%;
+    }
+
+    .workflows-head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .workflows-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.5px;
+    }
+
+    .workflows-count {
+      font-size: 12px;
+      color: #64646a;
+    }
+
+    .workflows-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .wf-card {
+      display: block;
+      cursor: pointer;
+      background: #121214;
+      border: 1px solid #26262b;
+      border-radius: 12px;
+      padding: 16px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .wf-card:hover {
+      border-color: #3f3f46;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .wf-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .wf-delete {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: #4a4a52;
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      opacity: 0;
+      transition: color 0.2s, opacity 0.2s, background 0.2s;
+    }
+
+    .wf-card:hover .wf-delete { opacity: 1; }
+
+    .wf-delete:hover {
+      color: #f87171;
+      background: #1a1212;
+    }
+
+    .wf-delete svg { width: 15px; height: 15px; }
+
+    .wf-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+      border: 1px solid #2a2a2e;
+      color: #64646a;
+    }
+
+    .wf-badge.on {
+      color: #4ade80;
+      border-color: #14532d;
+      background: #0b1f12;
+    }
+
+    .wf-card-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    .wf-card-meta {
+      font-size: 11.5px;
+      color: #64646a;
+    }
+
+    .workflows-loading,
+    .workflows-empty {
+      grid-column: 1 / -1;
+      color: #64646a;
+      font-size: 14px;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    /* Settings page */
+    .settings-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 10%;
+    }
+
+    .settings-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+    }
+
+    .settings-subtitle {
+      font-size: 12px;
+      font-weight: 400;
+      color: #64646a;
+      letter-spacing: 0;
+    }
+
+    .settings-card {
+      background: #121214;
+      border: 1px solid #26262b;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      max-width: 640px;
+    }
+
+    .settings-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #8a8a93;
+      margin-bottom: 14px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .settings-row:last-child { margin-bottom: 0; }
+
+    .settings-label {
+      width: 110px;
+      flex-shrink: 0;
+      font-size: 12.5px;
+      color: #a0a0a5;
+    }
+
+    .settings-input {
+      flex: 1;
+      background: #0e0e10;
+      border: 1px solid #26262b;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 13.5px;
+      font-family: inherit;
+      padding: 9px 12px;
+      outline: none;
+    }
+
+    .settings-input:focus { border-color: #3f3f46; }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .settings-btn {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.2s;
+    }
+
+    .settings-btn:hover { opacity: 0.85; }
+
+    .settings-btn.subtle {
+      background: transparent;
+      color: #a0a0a5;
+      border: 1px solid #2a2a2e;
+      margin-top: 10px;
+    }
+
+    .settings-btn.subtle:hover { color: #ffffff; border-color: #3f3f46; }
+
+    .settings-btn.danger {
+      background: transparent;
+      color: #f87171;
+      border: 1px solid #5c1e1e;
+    }
+
+    .settings-btn.small { padding: 5px 10px; font-size: 11.5px; }
+
+    .settings-status {
+      font-size: 12px;
+      color: #64646a;
+    }
+
+    .settings-status.ok { color: #4ade80; }
+    .settings-status.err { color: #f87171; }
+
+    /* Provider rows */
+    .provider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #1f1f22;
+    }
+
+    .provider-row:last-of-type { border-bottom: none; }
+
+    .provider-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .provider-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .provider-badge {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2e;
+      color: #64646a;
+    }
+
+    .provider-badge.on {
+      color: #c084fc;
+      border-color: #3b2d4d;
+      background: #231b2e;
+    }
+
+    .provider-meta {
+      font-size: 11px;
+      color: #64646a;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .provider-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .provider-edit {
+      display: none;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .provider-row.editing .provider-edit { display: flex; }
+    .provider-row.editing .provider-static { display: none; }
+
+    .provider-edit input {
+      flex: 1;
+      background: #0e0e10;
+      border: 1px solid #26262b;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: inherit;
+      padding: 6px 10px;
+      outline: none;
+    }
+
+    .provider-edit input:focus { border-color: #3f3f46; }
   </style>
 </head>
 <body>
@@ -341,31 +792,25 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-top">
-      <button class="nav-item active">
+      <button class="nav-item active" id="new-session-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         New session
       </button>
-      <button class="nav-item">Capabilities</button>
-      <button class="nav-item">Messaging</button>
-      <button class="nav-item">Artifacts</button>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="section-title">PINNED</div>
-      <div class="history-item">Hey, today I want to start...</div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="section-title">SESSIONS</div>
-      <div class="history-item">hackathon prep</div>
-      <div class="history-item">Untitled session</div>
+      <button class="nav-item" id="workflows-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+        Workflows
+      </button>
+      <button class="nav-item" id="settings-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        Settings
+      </button>
     </div>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
     <div class="top-nav">
-      <div class="tab">○ NEW SESSION</div>
+      <div class="tab" id="tab-label">○ NEW SESSION</div>
     </div>
     
     <div id="chat-area">
@@ -376,12 +821,67 @@
        </div>
     </div>
 
-    <div class="model-bar">
-      <span class="model-chip" id="provider-chip">loading…</span>
+    <div id="workflows-view" class="workflows-view hidden">
+      <div class="workflows-head">
+        <h2 class="workflows-title">Workflows</h2>
+        <span id="workflows-count" class="workflows-count"></span>
+      </div>
+      <div id="workflows-grid" class="workflows-grid"></div>
+    </div>
+
+    <div id="settings-view" class="settings-view hidden">
+      <h2 class="settings-title">Settings <span id="backend-info" class="settings-subtitle"></span></h2>
+
+      <div class="settings-card">
+        <h3 class="settings-card-title">n8n</h3>
+        <div class="settings-row">
+          <label class="settings-label" for="n8n-base">Base URL</label>
+          <input id="n8n-base" class="settings-input" type="text" placeholder="http://localhost:5678" />
+        </div>
+        <div class="settings-row">
+          <label class="settings-label" for="n8n-key">API key</label>
+          <input id="n8n-key" class="settings-input" type="password" placeholder="•••• configured — leave empty to keep" />
+        </div>
+        <div class="settings-row">
+          <span id="n8n-status" class="settings-status"></span>
+          <div class="settings-actions">
+            <button class="settings-btn" onclick="saveN8n()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h3 class="settings-card-title">AI providers</h3>
+        <div id="providers-list"></div>
+        <button class="settings-btn subtle" id="add-provider-toggle" onclick="toggleAddProvider()">+ Add provider</button>
+        <div id="add-provider-form" class="hidden">
+          <div class="settings-row">
+            <input id="np-name" class="settings-input" type="text" placeholder="Provider name (e.g. Ollama)" />
+          </div>
+          <div class="settings-row">
+            <input id="np-base" class="settings-input" type="text" placeholder="Base URL (e.g. http://localhost:11434/v1)" />
+          </div>
+          <div class="settings-row">
+            <input id="np-model" class="settings-input" type="text" placeholder="Default model (optional)" />
+          </div>
+          <div class="settings-row">
+            <input id="np-key" class="settings-input" type="password" placeholder="API key (optional)" />
+          </div>
+          <div class="settings-row">
+            <div class="settings-actions">
+              <button class="settings-btn" onclick="addProvider()">Add provider</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="model-bar" id="model-bar">
+      <select id="provider-select" class="model-select" aria-label="Provider"></select>
       <select id="model-select" class="model-select" aria-label="Model"></select>
     </div>
 
-    <div class="input-container">
+    <div class="input-container" id="input-container">
       <div id="input-area">
          <span class="plus-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -400,17 +900,66 @@
   </main>
 
 <script>
-  const BACKEND = "http://localhost:8000";
+  // backend.js (written by scripts/start.py when the backend isn't on 8000) may
+  // override this — e.g. window.ORBIT_BACKEND = "http://localhost:8001".
+  // Backend is auto-discovered at runtime: the first candidate that serves
+  // /settings wins, so stale tabs and stale backend.js self-heal in seconds.
+  const CANDIDATES = [window.ORBIT_BACKEND, "http://localhost:8000", "http://localhost:8001"].filter(Boolean);
+  let BACKEND = window.ORBIT_BACKEND || "http://localhost:8000";
+
+  async function discoverBackend() {
+    for (const url of CANDIDATES) {
+      try {
+        const r = await fetch(`${url}/settings`);
+        if (r.ok) {
+          if (BACKEND !== url) console.log(`[orbit] backend -> ${url}`);
+          BACKEND = url;
+          const info = document.getElementById("backend-info");
+          if (info) info.textContent = `backend: ${url}`;
+          return;
+        }
+      } catch (e) { /* try next candidate */ }
+    }
+  }
+  discoverBackend();
+  setInterval(discoverBackend, 10000);
   let currentModel = null;
 
   async function loadModels() {
-    const chip = document.getElementById("provider-chip");
+    const psel = document.getElementById("provider-select");
     const sel = document.getElementById("model-select");
+    if (!psel || !sel) return;
     try {
       const resp = await fetch(`${BACKEND}/models`);
       if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
       const data = await resp.json();
-      chip.textContent = data.provider;
+
+      // Rebuild provider options — keep existing selection if the active id is missing
+      const prevValue = psel.value;
+      psel.innerHTML = "";
+      const providers = data.providers || [];
+      if (!providers.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "no providers";
+        psel.appendChild(opt);
+        psel.disabled = true;
+      } else {
+        psel.disabled = false;
+        let matched = false;
+        for (const p of providers) {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = p.has_key ? p.name : `${p.name} (no key)`;
+          if (p.id === data.provider || p.id === prevValue) {
+            opt.selected = true;
+            matched = true;
+          }
+          psel.appendChild(opt);
+        }
+        if (!matched && providers.length) psel.value = providers[0].id;
+      }
+
       sel.innerHTML = "";
       for (const m of data.models) {
         const opt = document.createElement("option");
@@ -421,13 +970,20 @@
       }
       currentModel = data.model;
       sel.disabled = data.models.length === 0;
+      const modelBar = document.getElementById("model-bar");
+      if (modelBar && !modelBar.classList.contains("hidden")) {
+        modelBar.style.opacity = "";
+      }
     } catch (err) {
-      chip.textContent = "offline";
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "backend offline — model fixed";
-      sel.appendChild(opt);
+      // Keep the existing dropdowns intact — only mark the model one disabled.
+      sel.innerHTML = "";
+      const opt2 = document.createElement("option");
+      opt2.value = "";
+      opt2.textContent = "unavailable";
+      sel.appendChild(opt2);
       sel.disabled = true;
+      const modelBar = document.getElementById("model-bar");
+      if (modelBar) modelBar.style.opacity = "0.55";
     }
   }
 
@@ -435,9 +991,283 @@
     currentModel = e.target.value || null;
   });
 
+  document.getElementById("provider-select").addEventListener("change", async (e) => {
+    const id = e.target.value;
+    if (!id) return;
+    try {
+      await api("/providers/select", "POST", { id });
+      loadModels();
+    } catch (err) {
+      window.alert(err.message);
+      loadModels();
+    }
+  });
+
   document.getElementById("user-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendMessage();
   });
+
+  /* ---- Views (chat / workflows / settings) ---- */
+  function showView(view) {
+    const chat   = document.getElementById("chat-area");
+    const wfView = document.getElementById("workflows-view");
+    const stView = document.getElementById("settings-view");
+    const modelBar = document.getElementById("model-bar");
+    const inputWrap = document.getElementById("input-container");
+    const tab = document.getElementById("tab-label");
+    const isWorkflows = view === "workflows";
+    const isSettings  = view === "settings";
+    chat.classList.toggle("hidden", isWorkflows || isSettings);
+    wfView.classList.toggle("hidden", !isWorkflows);
+    stView.classList.toggle("hidden", !isSettings);
+    modelBar.classList.toggle("hidden", isWorkflows || isSettings);
+    inputWrap.classList.toggle("hidden", isWorkflows || isSettings);
+    tab.textContent = isWorkflows ? "○ WORKFLOWS" : isSettings ? "○ SETTINGS" : "○ NEW SESSION";
+    document.getElementById("new-session-btn").classList.toggle("active", !isWorkflows && !isSettings);
+    document.getElementById("workflows-btn").classList.toggle("active", isWorkflows);
+    document.getElementById("settings-btn").classList.toggle("active", isSettings);
+    if (isWorkflows) loadWorkflows();
+    if (isSettings) loadSettings();
+  }
+
+  function newSession() {
+    const area = document.getElementById("chat-area");
+    area.querySelectorAll(".msg").forEach((m) => m.remove());
+    artifact = null;
+    loadingDiv = null;
+    document.body.classList.remove("chat-active");
+    showView("chat");
+    document.getElementById("user-input").focus();
+  }
+
+  document.getElementById("new-session-btn").addEventListener("click", newSession);
+  document.getElementById("workflows-btn").addEventListener("click", () => showView("workflows"));
+  document.getElementById("settings-btn").addEventListener("click", () => showView("settings"));
+
+  /* ---- Settings page ---- */
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.classList.remove("ok", "err");
+    if (kind) el.classList.add(kind);
+  }
+
+  async function api(path, method, body) {
+    const opts = { method: method || "GET", headers: {} };
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    let resp;
+    try {
+      resp = await fetch(`${BACKEND}${path}`, opts);
+    } catch (err) {
+      throw new Error(`Cannot reach ${BACKEND}${path} (${err.message})`);
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(`${data.detail || data.error || `HTTP ${resp.status}`} — ${BACKEND}${path}`);
+    return data;
+  }
+
+  async function loadSettings() {
+    await discoverBackend();
+    const status = document.getElementById("n8n-status");
+    setStatus(status, "Loading…", "");
+    try {
+      const data = await api("/settings");
+      document.getElementById("n8n-base").value = data.n8n.base_url;
+      document.getElementById("n8n-key").value = "";
+      setStatus(
+        status,
+        data.n8n.connected ? `n8n connected (${data.n8n.base_url})` : "n8n not reachable",
+        data.n8n.connected ? "ok" : "err"
+      );
+      renderProviders(data.providers, data.provider, data.model);
+    } catch (err) {
+      setStatus(status, err.message, "err");
+    }
+  }
+
+  async function saveN8n() {
+    const status = document.getElementById("n8n-status");
+    const base = document.getElementById("n8n-base").value.trim();
+    const key  = document.getElementById("n8n-key").value.trim();
+    setStatus(status, "Saving…", "");
+    try {
+      const data = await api("/settings/n8n", "PUT", { base_url: base, api_key: key || undefined });
+      setStatus(
+        status,
+        data.connected ? `Saved — n8n connected (${data.base_url})` : "Saved — n8n not reachable",
+        data.connected ? "ok" : "err"
+      );
+    } catch (err) {
+      setStatus(status, err.message, "err");
+    }
+  }
+
+  function renderProviders(providers, activeId, activeModel) {
+    const list = document.getElementById("providers-list");
+    list.innerHTML = "";
+    for (const p of providers) {
+      const row = document.createElement("div");
+      row.classList.add("provider-row");
+      row.dataset.pid = p.id;
+      const isActive = p.id === activeId;
+      row.innerHTML = `
+        <div class="provider-info provider-static">
+          <div class="provider-name">
+            ${escapeHtml(p.name)}
+            ${isActive ? '<span class="provider-badge on">active</span>' : ""}
+            ${p.builtin ? '<span class="provider-badge">built-in</span>' : ""}
+          </div>
+          <div class="provider-meta">${escapeHtml(p.base_url)} · ${escapeHtml(p.default_model || "no default model")} · key ${p.has_key ? "set" : "missing"}</div>
+        </div>
+        <div class="provider-edit">
+          <input class="pe-base" type="text" value="${escapeHtml(p.base_url)}" placeholder="Base URL" />
+          <input class="pe-model" type="text" value="${escapeHtml(p.default_model)}" placeholder="Default model" />
+          <input class="pe-key" type="password" placeholder="${p.has_key ? "leave empty to keep key" : "API key"}" />
+        </div>
+        <div class="provider-actions">
+          <button class="settings-btn small subtle" onclick="editProvider('${p.id}')">Edit</button>
+          <button class="settings-btn small" onclick="selectProvider('${p.id}')">${isActive ? "Active" : "Use"}</button>
+          <button class="settings-btn small subtle" onclick="testProviderRow('${p.id}')">Test</button>
+          ${p.builtin ? "" : `<button class="settings-btn small danger" onclick="deleteProvider('${p.id}')">Delete</button>`}
+        </div>`;
+      list.appendChild(row);
+    }
+    if (!providers.length) {
+      list.innerHTML = `<div class="provider-meta">No providers yet.</div>`;
+    }
+  }
+
+  function editProvider(pid) {
+    const row = document.querySelector(`.provider-row[data-pid="${pid}"]`);
+    if (!row) return;
+    const editing = row.classList.toggle("editing");
+    const btn = row.querySelector(".provider-actions .settings-btn.subtle");
+    if (editing) {
+      btn.textContent = "Save";
+      btn.onclick = () => saveProvider(pid, btn);
+    } else {
+      btn.textContent = "Edit";
+      btn.onclick = null;
+    }
+  }
+
+  async function saveProvider(pid, btn) {
+    const row = btn.closest(".provider-row");
+    const base = row.querySelector(".pe-base").value.trim();
+    const model = row.querySelector(".pe-model").value.trim();
+    const key = row.querySelector(".pe-key").value.trim();
+    try {
+      await api(`/providers/${pid}`, "PUT", { base_url: base, default_model: model, api_key: key });
+      loadSettings();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  async function selectProvider(id) {
+    await api("/providers/select", "POST", { id });
+    loadSettings();
+    loadModels();
+  }
+
+  async function testProviderRow(id) {
+    try {
+      const resp = await api("/providers/test", "POST", { provider_id: id });
+      if (resp.ok) {
+        window.alert(`Connection OK — model replied: ${resp.reply}`);
+      } else {
+        window.alert(`Test failed: ${resp.error}`);
+      }
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  async function deleteProvider(id) {
+    if (!window.confirm("Delete this provider?")) return;
+    await api(`/providers/${id}`, "DELETE");
+    loadSettings();
+  }
+
+  function toggleAddProvider() {
+    document.getElementById("add-provider-form").classList.toggle("hidden");
+  }
+
+  async function addProvider() {
+    const name = document.getElementById("np-name").value.trim();
+    const base = document.getElementById("np-base").value.trim();
+    const model = document.getElementById("np-model").value.trim();
+    const key  = document.getElementById("np-key").value.trim();
+    if (!name || !base) { window.alert("Name and Base URL are required"); return; }
+    try {
+      await api("/providers", "POST", { name, base_url: base, default_model: model, api_key: key });
+      ["np-name", "np-base", "np-model", "np-key"].forEach((id) => (document.getElementById(id).value = ""));
+      document.getElementById("add-provider-form").classList.add("hidden");
+      loadSettings();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  /* ---- Workflows page ---- */
+  async function loadWorkflows() {
+    await discoverBackend();
+    const grid  = document.getElementById("workflows-grid");
+    const count = document.getElementById("workflows-count");
+    grid.innerHTML = `<div class="workflows-loading">Loading workflows…</div>`;
+    count.textContent = "";
+    try {
+      const resp = await fetch(`${BACKEND}/workflows`);
+      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+      const data = await resp.json();
+      const wfs = data.workflows || [];
+      count.textContent = wfs.length ? `${wfs.length} found` : "";
+      grid.innerHTML = "";
+      if (!wfs.length) {
+        grid.innerHTML = `<div class="workflows-empty">No workflows yet — send a message and Orbit will spawn one.</div>`;
+        return;
+      }
+      for (const w of wfs) {
+        const card = document.createElement("div");
+        card.classList.add("wf-card");
+        const editorUrl = `${data.base_url}/workflow/${w.id}`;
+        card.addEventListener("click", () => window.open(editorUrl, "_blank"));
+
+        const delBtn = document.createElement("button");
+        delBtn.classList.add("wf-delete");
+        delBtn.title = "Delete workflow";
+        delBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+        delBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window.confirm(`Delete "${w.name}"?\nThis removes it from n8n and cannot be undone.`)) return;
+          try {
+            const resp = await fetch(`${BACKEND}/workflows/${w.id}`, { method: "DELETE" });
+            if (!resp.ok) {
+              const body = await resp.json().catch(() => ({}));
+              throw new Error(body.error || `Delete failed: ${resp.status}`);
+            }
+            card.remove();
+          } catch (err) {
+            window.alert(err.message);
+          }
+        });
+
+        card.innerHTML = `
+          <div class="wf-card-top">
+            ${w.active ? '<span class="wf-badge on">● active</span>' : '<span class="wf-badge">inactive</span>'}
+          </div>
+          <div class="wf-card-name">${escapeHtml(w.name)}</div>
+          <div class="wf-card-meta">${w.node_count} nodes · updated ${escapeHtml(w.updated_at || "unknown")}</div>`;
+        card.querySelector(".wf-card-top").appendChild(delBtn);
+        grid.appendChild(card);
+      }
+    } catch (err) {
+      grid.innerHTML = `<div class="workflows-empty">${escapeHtml(err.message)} — is the backend running?</div>`;
+    }
+  }
 
   function addMessage(role, content, agentUsed, spawned, model, agentSummary) {
     const area = document.getElementById("chat-area");
@@ -502,7 +1332,7 @@
 
     // Show loading indicator
     const area = document.getElementById("chat-area");
-    const loadingDiv = document.createElement("div");
+    loadingDiv = document.createElement("div");
     loadingDiv.classList.add("msg", "bot", "loading");
     loadingDiv.textContent = "Orbit is routing your task…";
     area.appendChild(loadingDiv);
@@ -517,20 +1347,147 @@
 
       if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
 
-      const data = await resp.json();
-      loadingDiv.remove();
-      addMessage("bot", data.response, data.agent_used, data.spawned, data.model, data.agent_summary);
-
+      await readSSE(resp, (event, data) => {
+        switch (event) {
+          case "status":  onStatus(data); break;
+          case "design":  artifact = createArtifact(data); break;
+          case "workflow": renderGraph(data); break;
+          case "done":    finishChat(data); break;
+          case "error":   failChat(data.message || "Something went wrong"); break;
+        }
+      });
     } catch (err) {
-      loadingDiv.remove();
-      const errDiv = document.createElement("div");
-      errDiv.classList.add("msg", "bot");
-      errDiv.innerHTML = `<div class="meta"><span class="badge error">⚠ error</span></div><div>${err.message} — is the backend running on port 8000?</div>`;
-      area.appendChild(errDiv);
+      failChat(err.message + " — is the backend running on port 8000?");
     }
 
     btn.disabled = false;
     input.focus();
+  }
+
+  /* ---- SSE ---- */
+  async function readSSE(response, onEvent) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let event = "message", data = "";
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data = line.slice(5).trim();
+        }
+        if (data) {
+          try { onEvent(event, JSON.parse(data)); } catch (e) { /* skip malformed */ }
+        }
+      }
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  /* ---- Artifact window ---- */
+  let artifact = null;
+  let loadingDiv = null;
+
+  function createArtifact(design) {
+    const area = document.getElementById("chat-area");
+    const holder = document.createElement("div");
+    holder.classList.add("msg", "artifact-holder");
+    holder.innerHTML = `
+      <div class="artifact">
+        <div class="artifact-head">
+          <span class="badge spawned">✨ spawning</span>
+          <span class="artifact-name">${escapeHtml(design.name)}</span>
+        </div>
+        <div class="artifact-summary">${escapeHtml(design.summary)}</div>
+        <div class="artifact-graph"></div>
+        <div class="artifact-status">Designing workflow…</div>
+      </div>`;
+    area.appendChild(holder);
+    holder.scrollIntoView({ block: "nearest" });
+    if (loadingDiv) loadingDiv.style.display = "none";
+    return {
+      el: holder.querySelector(".artifact"),
+      graphEl: holder.querySelector(".artifact-graph"),
+      statusEl: holder.querySelector(".artifact-status"),
+      nodes: [],
+      activeIndex: -1,
+    };
+  }
+
+  function renderGraph(graph) {
+    if (!artifact) return;
+    artifact.nodes = graph.nodes || [];
+    artifact.graphEl.innerHTML = "";
+    artifact.nodes.forEach((n, i) => {
+      if (i > 0) {
+        const arrow = document.createElement("span");
+        arrow.classList.add("node-arrow");
+        arrow.textContent = "→";
+        artifact.graphEl.appendChild(arrow);
+      }
+      const chip = document.createElement("span");
+      chip.classList.add("node-chip");
+      chip.innerHTML = `<span class="node-dot"></span>${escapeHtml(n.name)}`;
+      artifact.graphEl.appendChild(chip);
+    });
+    artifact.graphEl.querySelectorAll(".node-chip").forEach((chip, i) => {
+      setTimeout(() => chip.classList.add("revealed"), 60 + i * 160);
+    });
+    setActiveNode(0);
+  }
+
+  function setActiveNode(index) {
+    if (!artifact || !artifact.el) return;
+    artifact.activeIndex = index;
+    artifact.el.querySelectorAll(".node-chip").forEach((chip, i) => {
+      chip.classList.toggle("active", i === index);
+    });
+  }
+
+  function onStatus(data) {
+    const map = {
+      classify:  "Classifying task…",
+      design:    "Designing a specialist agent…",
+      built:     "Pushing workflow to n8n…",
+      activated: "Workflow activated — running…",
+      run:       "Running…",
+    };
+    const text = map[data.stage] || data.message || "Working…";
+    if (artifact) {
+      artifact.statusEl.textContent = text;
+      if (data.stage === "built") setActiveNode(0);
+      else if (data.stage === "activated") setActiveNode(1);
+      else if (data.stage === "run") setActiveNode(artifact.nodes.length - 1);
+    } else if (loadingDiv) {
+      loadingDiv.textContent = text;
+    }
+  }
+
+  function finishChat(data) {
+    if (artifact) { artifact.el.remove(); artifact = null; }
+    if (loadingDiv) { loadingDiv.remove(); loadingDiv = null; }
+    addMessage("bot", data.response, data.agent_used, data.spawned, data.model, data.agent_summary);
+  }
+
+  function failChat(msg) {
+    if (artifact) { artifact.el.remove(); artifact = null; }
+    if (loadingDiv) { loadingDiv.remove(); loadingDiv = null; }
+    const area = document.getElementById("chat-area");
+    const errDiv = document.createElement("div");
+    errDiv.classList.add("msg", "bot");
+    errDiv.innerHTML = `<div class="meta"><span class="badge error">⚠ error</span></div><div>${escapeHtml(msg)}</div>`;
+    area.appendChild(errDiv);
   }
 
   loadModels();
