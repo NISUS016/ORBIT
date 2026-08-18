@@ -95,9 +95,16 @@ async def chat_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     await client.activate(workflow_id)
     yield _sse("status", {"stage": "activated", "message": "Workflow activated — running…"})
 
-    webhook_url = client.webhook_url(created, webhook_path)
-    # Wait for the webhook to be live, retrying activation races
-    result, status_code = await client.call_spawned(req.message, model, webhook_url)
+    has_webhook = any(
+        n.get("type") == "n8n-nodes-base.webhook"
+        for n in workflow.get("nodes", [])
+    )
+    if has_webhook:
+        webhook_url = client.webhook_url(created, webhook_path)
+        # Wait for the webhook to be live, retrying activation races
+        result, status_code = await client.call_spawned(req.message, model, webhook_url)
+    else:
+        result = f"Workflow '{workflow.get('name')}' created and activated in n8n (ID: {workflow_id}). This workflow is event-driven (e.g. Trigger node) and will run automatically when triggered in n8n."
 
     yield _sse("done", {
         "response": result,
@@ -144,12 +151,12 @@ async def models():
 
 @app.get("/workflows")
 async def workflows():
-    """All n8n workflows, condensed for the UI's card view."""
+    """All n8n workflows, condensed for the UI's card view, sorted with newest first."""
     client = N8NClient()
     try:
         data = await client.list_workflows()
     except Exception as exc:
-        return {"base_url": config.N8N_BASE_URL, "workflows": [], "error": str(exc)}
+        return {"base_url": config.get_n8n_base_url(), "workflows": [], "error": str(exc)}
     items = []
     for w in data:
         items.append({
@@ -157,8 +164,11 @@ async def workflows():
             "name": w.get("name", "Untitled"),
             "active": bool(w.get("active")),
             "node_count": len(w.get("nodes") or []),
+            "created_at": w.get("createdAt") or "",
             "updated_at": (w.get("updatedAt") or "")[:10],
         })
+    # Sort descending by createdAt/updatedAt (newest first)
+    items.sort(key=lambda x: x.get("created_at") or x.get("updated_at") or "", reverse=True)
     return {"base_url": config.get_n8n_base_url(), "workflows": items}
 
 

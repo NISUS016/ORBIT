@@ -9,6 +9,7 @@ to a guaranteed-valid 3-node skeleton).
 import asyncio
 import json
 import os
+import time
 import uuid
 
 from config import get_llm_client
@@ -23,7 +24,7 @@ with open(_guide_path, encoding="utf-8") as _guide:
 with open(_catalog_path, encoding="utf-8") as _catalog:
     NODE_CATALOG = _catalog.read()
 
-FULL_SYSTEM_PROMPT = SYSTEM_PROMPT + "\n\n## Available n8n Nodes Reference\n\n" + NODE_CATALOG
+FULL_SYSTEM_PROMPT = SYSTEM_PROMPT + "\n\n" + NODE_CATALOG
 
 
 def classify_task(message: str, model: str) -> str:
@@ -46,7 +47,7 @@ def classify_task(message: str, model: str) -> str:
                 },
                 {"role": "user", "content": message},
             ],
-            max_tokens=10,
+            max_tokens=20,
         )
         result = resp.choices[0].message.content.strip().lower()
         # Fuzzy match
@@ -71,7 +72,7 @@ def design_workflow(task: str, model: str, max_attempts: int = 3) -> tuple[dict,
     Returns (workflow_dict, generation_log) where log lists each attempt."""
     messages = [
         {"role": "system", "content": FULL_SYSTEM_PROMPT},
-        {"role": "user", "content": task},
+        {"role": "user", "content": f"Task description:\n{task}\n\nGenerate the complete n8n workflow JSON for this task."},
     ]
     log: list[str] = []
 
@@ -80,24 +81,24 @@ def design_workflow(task: str, model: str, max_attempts: int = 3) -> tuple[dict,
             resp = get_llm_client().chat.completions.create(
                 model=model,
                 messages=messages,
-                max_tokens=4000,
-                temperature=0.3,
-                response_format={"type": "json_object"},
+                max_tokens=3500,
+                temperature=0.2,
             )
             text = resp.choices[0].message.content or ""
         except Exception as e:
-            log.append(f"attempt {attempt}: LLM call failed ({e})")
+            err_str = str(e)
+            log.append(f"attempt {attempt}: LLM call failed ({err_str[:120]})")
+            if "rate_limit" in err_str.lower() or "429" in err_str or "413" in err_str:
+                time.sleep(2.0)
             continue
 
         workflow, parse_error = parse_llm_workflow_response(text)
         if parse_error:
             log.append(f"attempt {attempt}: parse failed — {parse_error}")
-            messages.append({"role": "assistant", "content": text})
-            messages.append({
-                "role": "user",
-                "content": f"Your response could not be parsed as JSON: {parse_error}. "
-                           "Return ONLY the raw JSON object, no fences or prose.",
-            })
+            messages = [
+                {"role": "system", "content": FULL_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Task: {task}\n\nYour previous response was not valid JSON. Error: {parse_error}. Please output ONLY a valid JSON object with name, nodes, connections, settings."},
+            ]
             continue
 
         errors = validate_workflow(workflow)
@@ -109,12 +110,10 @@ def design_workflow(task: str, model: str, max_attempts: int = 3) -> tuple[dict,
             return workflow, log
 
         log.append(f"attempt {attempt}: validation failed — {'; '.join(errors)}")
-        messages.append({"role": "assistant", "content": text})
-        messages.append({
-            "role": "user",
-            "content": "Your workflow has validation errors:\n- " + "\n- ".join(errors)
-                       + "\nFix ALL of them and return the corrected JSON object only.",
-        })
+        messages = [
+            {"role": "system", "content": FULL_SYSTEM_PROMPT},
+            {"role": "user", "content": f"Task: {task}\n\nYour workflow had validation issues:\n- " + "\n- ".join(errors) + "\n\nPlease fix these and return the corrected complete JSON workflow object."},
+        ]
 
     log.append("max attempts reached — using fallback workflow")
     return _fallback_workflow(task), log

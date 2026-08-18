@@ -8,7 +8,7 @@ preamble text, etc.). Stdlib only.
 import json
 import re
 
-VALID_NODE_TYPES = {
+CORE_NODE_TYPES = {
     "n8n-nodes-base.webhook",
     "n8n-nodes-base.httpRequest",
     "n8n-nodes-base.code",
@@ -21,6 +21,18 @@ VALID_NODE_TYPES = {
     "n8n-nodes-base.stopAndError",
     "n8n-nodes-base.errorTrigger",
 }
+
+
+def is_valid_node_type(ntype: str) -> bool:
+    """Check if node type is a valid n8n node type."""
+    if not isinstance(ntype, str) or not ntype.strip():
+        return False
+    if ntype in CORE_NODE_TYPES:
+        return True
+    # Allow all standard n8n-nodes-base and langchain community nodes
+    if ntype.startswith("n8n-nodes-base.") or ntype.startswith("@n8n/") or ntype.startswith("n8n-nodes-langchain."):
+        return True
+    return False
 
 
 def validate_workflow(workflow: dict) -> list[str]:
@@ -39,22 +51,26 @@ def validate_workflow(workflow: dict) -> list[str]:
         return errors
     if not isinstance(connections, dict):
         errors.append("missing or invalid 'connections' (must be a dict)")
+        return errors
 
-    # 2. Minimum nodes: at least 2 (Webhook + output)
-    if len(nodes) < 2:
-        errors.append(f"at least 2 nodes required, got {len(nodes)}")
+    # 2. Minimum nodes: at least 1 node
+    if len(nodes) < 1:
+        errors.append(f"at least 1 node required, got {len(nodes)}")
+        return errors
 
-    # 3+4. Node structure and valid node types
+    # 3. Node structure and valid node types
     node_names = []
-    has_webhook = False
-    has_format_result = False
+    has_trigger_or_webhook = False
     for i, node in enumerate(nodes):
         if not isinstance(node, dict):
             errors.append(f"node #{i} is not a dict")
             continue
         name = node.get("name")
+        if not name:
+            errors.append(f"node #{i} missing 'name'")
+            continue
         node_names.append(name)
-        for field in ("name", "type", "position", "parameters"):
+        for field in ("type", "position", "parameters"):
             if field not in node:
                 errors.append(f"node {name!r} missing '{field}'")
         position = node.get("position")
@@ -62,39 +78,29 @@ def validate_workflow(workflow: dict) -> list[str]:
             errors.append(f"node {name!r} 'position' must be a [x, y] array")
         if not isinstance(node.get("parameters"), dict):
             errors.append(f"node {name!r} 'parameters' must be a dict")
-        ntype = node.get("type")
-        if ntype not in VALID_NODE_TYPES:
+        ntype = node.get("type", "")
+        if not is_valid_node_type(ntype):
             errors.append(f"node {name!r} has unknown type {ntype!r}")
-        if ntype == "n8n-nodes-base.webhook":
-            params = node.get("parameters") or {}
-            if params.get("responseMode") != "lastNode":
-                errors.append(f"webhook node {name!r} must have responseMode 'lastNode'")
-            if not (params.get("path") or "").strip():
-                errors.append(f"webhook node {name!r} must have a non-empty 'path'")
-            has_webhook = True
-        if name == "Format Result":
-            has_format_result = True
 
-    # 5. No duplicate names
+        if ntype == "n8n-nodes-base.webhook" or "trigger" in ntype.lower() or "trigger" in name.lower():
+            has_trigger_or_webhook = True
+            if ntype == "n8n-nodes-base.webhook":
+                params = node.get("parameters") or {}
+                if not (params.get("path") or "").strip():
+                    errors.append(f"webhook node {name!r} must have a non-empty 'path'")
+
+    # 4. No duplicate names
     seen = set()
     for name in node_names:
         if name in seen:
             errors.append(f"duplicate node name {name!r}")
         seen.add(name)
 
-    # 6. Webhook required
-    if not has_webhook:
-        errors.append("workflow must contain at least one webhook node")
-
-    # 7. Format Result required
-    if not has_format_result:
-        errors.append("workflow must contain a node named 'Format Result'")
-
-    # 8. Connection validity: all source and target names must exist
+    # 5. Connection validity: all source and target names must exist
     name_set = set(seen)
     for src, outs in connections.items():
         if src not in name_set:
-            errors.append(f"connection source {src!r} does not exist")
+            errors.append(f"connection source {src!r} does not exist in nodes")
             continue
         mains = outs.get("main") if isinstance(outs, dict) else None
         if not isinstance(mains, list):
@@ -109,53 +115,56 @@ def validate_workflow(workflow: dict) -> list[str]:
                         f"connection from {src!r} targets missing node {link.get('node')!r}"
                     )
 
-    # 9. Reachability: all non-webhook nodes need at least one incoming connection
-    if isinstance(connections, dict):
-        connected = set()
-        for outs in connections.values():
-            mains = outs.get("main") if isinstance(outs, dict) else None
-            if not isinstance(mains, list):
-                continue
-            for output in mains:
-                if isinstance(output, list):
-                    for link in output:
-                        if isinstance(link, dict) and link.get("node"):
-                            connected.add(link["node"])
-        for name in node_names:
-            if name not in connected:
-                # webhook nodes are entry points, everything else must be fed
-                node = next((n for n in nodes if n.get("name") == name), {})
-                if node.get("type") != "n8n-nodes-base.webhook":
-                    errors.append(f"node {name!r} is not reachable (no incoming connection)")
-
     return errors
 
 
 def parse_llm_workflow_response(text: str) -> tuple[dict | None, str]:
     """Extract a workflow JSON object from an LLM response.
 
-    Handles raw JSON, markdown-fenced JSON, and JSON with preamble text.
+    Handles raw JSON, markdown-fenced JSON, and JSON with preamble or reasoning text.
     Returns (parsed_dict, error_string); error is empty on success."""
     if not isinstance(text, str) or not text.strip():
         return None, "empty response"
 
     content = text.strip()
-    # Strip markdown fences (```json ... ```)
-    fenced = re.match(r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
-    if fenced:
-        content = fenced.group(1).strip()
 
-    # Find the first { and the last }
+    # Strip markdown fences if present
+    fenced_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    if fenced_match:
+        try:
+            parsed = json.loads(fenced_match.group(1))
+            if isinstance(parsed, dict) and "nodes" in parsed:
+                return parsed, ""
+        except json.JSONDecodeError:
+            pass
+
+    # Try finding JSON object containing "nodes"
+    nodes_idx = content.find('"nodes"')
+    if nodes_idx != -1:
+        # Find opening { before "nodes"
+        start = content.rfind("{", 0, nodes_idx)
+        if start != -1:
+            # Find matching or last closing }
+            end = content.rfind("}")
+            if end > start:
+                candidate = content[start:end + 1]
+                try:
+                    parsed = json.loads(candidate)
+                    if isinstance(parsed, dict):
+                        return parsed, ""
+                except json.JSONDecodeError:
+                    pass
+
+    # General search: first { to last }
     start = content.find("{")
     end = content.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None, "No JSON object found"
+    if start != -1 and end > start:
+        candidate = content[start:end + 1]
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed, ""
+        except json.JSONDecodeError as exc:
+            return None, f"Invalid JSON: {exc}"
 
-    candidate = content[start:end + 1]
-    try:
-        parsed = json.loads(candidate)
-    except json.JSONDecodeError as exc:
-        return None, f"Invalid JSON: {exc}"
-    if not isinstance(parsed, dict):
-        return None, "JSON object is not a dict"
-    return parsed, ""
+    return None, "No valid JSON workflow object found in response"

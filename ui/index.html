@@ -1223,6 +1223,12 @@
       if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
       const data = await resp.json();
       const wfs = data.workflows || [];
+      // Sort newest first by created_at or updated_at
+      wfs.sort((a, b) => {
+        const tA = new Date(a.created_at || a.updated_at || 0).getTime();
+        const tB = new Date(b.created_at || b.updated_at || 0).getTime();
+        return tB - tA;
+      });
       count.textContent = wfs.length ? `${wfs.length} found` : "";
       grid.innerHTML = "";
       if (!wfs.length) {
@@ -1255,12 +1261,28 @@
           }
         });
 
+        let dateLabel = "unknown";
+        if (w.created_at) {
+          try {
+            dateLabel = new Date(w.created_at).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit"
+            });
+          } catch (e) {
+            dateLabel = w.updated_at || "unknown";
+          }
+        } else if (w.updated_at) {
+          dateLabel = w.updated_at;
+        }
+
         card.innerHTML = `
           <div class="wf-card-top">
             ${w.active ? '<span class="wf-badge on">● active</span>' : '<span class="wf-badge">inactive</span>'}
           </div>
           <div class="wf-card-name">${escapeHtml(w.name)}</div>
-          <div class="wf-card-meta">${w.node_count} nodes · updated ${escapeHtml(w.updated_at || "unknown")}</div>`;
+          <div class="wf-card-meta">${w.node_count} nodes · created ${escapeHtml(dateLabel)}</div>`;
         card.querySelector(".wf-card-top").appendChild(delBtn);
         grid.appendChild(card);
       }
