@@ -7,6 +7,7 @@ workflow artifact live (see SPECS.md §3 for the event protocol).
 import asyncio
 import json
 import os
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,17 +42,18 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-async def chat_stream(req: ChatRequest) -> str:
+async def chat_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     """Async generator yielding SSE frames for a /chat request."""
     model = (req.model or config.get_llm_model()).strip() or config.get_llm_model()
 
     yield _sse("status", {"stage": "classify", "message": "Classifying task…"})
-    task_type = orchestrator.classify_task(req.message, model)
+    task_type = await orchestrator.classify_task_async(req.message, model)
 
-    if task_type in config.WEBHOOKS and config.WEBHOOKS[task_type]:
+    webhooks = config.get_webhooks_live()
+    if task_type in webhooks and webhooks[task_type]:
         # Known task — route to its sub-agent
         yield _sse("status", {"stage": "run", "agent": task_type})
-        result, _status = await call_webhook(config.WEBHOOKS[task_type], req.message, model)
+        result, _status = await call_webhook(webhooks[task_type], req.message, model)
         yield _sse("done", {
             "response": result,
             "agent_used": task_type,
@@ -61,40 +63,49 @@ async def chat_stream(req: ChatRequest) -> str:
         })
         return
 
-    # Novel task — factory: design -> build -> push -> activate -> run
-    yield _sse("status", {"stage": "design", "message": "Designing a specialist agent…"})
-    spec = orchestrator.design_agent(req.message, model)
+    # Novel task — AGENTIC workflow generation
+    yield _sse("status", {"stage": "design", "message": "Designing workflow with AI…"})
+    workflow, gen_log = await orchestrator.design_workflow_async(req.message, model)
+
     yield _sse("design", {
-        "name": spec["name"],
-        "summary": spec["summary"],
-        "steps": spec["steps"],
+        "name": workflow.get("name", "Generated Workflow"),
+        "summary": workflow.get("summary", ""),
+        "node_count": len(workflow.get("nodes", [])),
+        "generation_log": gen_log,
     })
 
-    workflow = workflow_builder.build_workflow(spec, model)
-    workflow["name"] = workflow_builder.name_for_task(spec["name"], req.message)
+    # Patch credentials and finalize
+    workflow_builder.patch_credentials(workflow, model)
+    webhook_path = workflow_builder.ensure_unique_webhook(workflow)
+    workflow["name"] = workflow_builder.name_for_task(
+        workflow.get("name", "Agent"), req.message
+    )
     yield _sse("workflow", workflow_builder.graph_summary(workflow))
 
-    yield _sse("status", {"stage": "built", "message": "Pushing workflow to n8n…"})
+    # Deploy to n8n
+    yield _sse("status", {"stage": "built", "message": "Deploying workflow to n8n…"})
     client = N8NClient()
     created = await client.create_workflow(workflow)
     workflow_id = created.get("id")
     if not workflow_id:
-        yield _sse("error", {"message": "Factory: workflow creation failed"})
+        error_detail = created.get("error", created.get("message", "Unknown error"))
+        yield _sse("error", {"message": f"Workflow creation failed: {error_detail}"})
         return
 
     await client.activate(workflow_id)
     yield _sse("status", {"stage": "activated", "message": "Workflow activated — running…"})
 
-    webhook_url = client.webhook_url(created, workflow_id)
+    webhook_url = client.webhook_url(created, webhook_path)
     # Wait for the webhook to be live, retrying activation races
     result, status_code = await client.call_spawned(req.message, model, webhook_url)
 
     yield _sse("done", {
         "response": result,
-        "agent_used": spec["name"],
+        "agent_used": workflow.get("name", "Generated Agent"),
         "spawned": True,
-        "agent_summary": spec["summary"],
+        "agent_summary": workflow.get("summary", ""),
         "model": model,
+        "node_count": len(workflow.get("nodes", [])),
     })
 
 
@@ -313,8 +324,3 @@ async def delete_workflow(workflow_id: str):
             status_code=404, content={"error": "Workflow not found or delete failed"}
         )
     return {"deleted": workflow_id}
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}

@@ -14,6 +14,7 @@ API-key values are only ever written to disk; get_all() never leaks them.
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).parent
@@ -78,8 +79,13 @@ def _load() -> dict:
                     data["env"] = stored["env"]
                 if "active_provider" in stored:
                     data["active_provider"] = stored["active_provider"]
-        except Exception:
-            pass
+        except FileNotFoundError:
+            pass  # File doesn't exist yet, use defaults
+        except Exception as e:
+            print(f"[providers] WARNING: Failed to read {CREDENTIALS_FILE}: {e}")
+            # If the file exists and has content, don't silently discard it
+            if CREDENTIALS_FILE.exists() and CREDENTIALS_FILE.stat().st_size > 0:
+                raise  # Re-raise — don't overwrite valid data with empty defaults
     return data
 
 
@@ -94,7 +100,14 @@ def _save(data: dict) -> None:
         },
         "env": data.get("env", {}),
     }
-    CREDENTIALS_FILE.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    # Backup existing file before overwriting
+    if CREDENTIALS_FILE.exists() and CREDENTIALS_FILE.stat().st_size > 0:
+        shutil.copy2(CREDENTIALS_FILE, CREDENTIALS_FILE.with_suffix(".json.bak"))
+
+    # Atomic write: write to temp file, then rename
+    tmp_file = CREDENTIALS_FILE.with_suffix(".json.tmp")
+    tmp_file.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    os.replace(str(tmp_file), str(CREDENTIALS_FILE))
 
 
 def set_setting(key: str, value: str) -> None:

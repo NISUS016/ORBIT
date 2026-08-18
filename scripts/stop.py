@@ -52,7 +52,7 @@ def main() -> None:
         elif marker not in cmd:
             skipped.append(f"{label} (pid {pid}: no longer a {marker} process, left alone)")
         else:
-            r = subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True, text=True)
+            r = subprocess.run(["taskkill", "/T", "/PID", str(pid), "/F"], capture_output=True, text=True)
             if r.returncode == 0:
                 stopped.append(f"{label} (pid {pid})")
             else:

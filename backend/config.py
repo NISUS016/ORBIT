@@ -87,6 +87,13 @@ def get_n8n_api_key() -> str:
     return providers_get_n8n_api_key()
 
 
+def get_webhooks_live() -> dict:
+    """Always returns the CURRENT webhooks from credentials.json.
+    Use this instead of the WEBHOOKS constant for runtime access."""
+    from providers import get_webhooks
+    return get_webhooks()
+
+
 REQUIRED_ENV = [
     ("N8N_BASE_URL", N8N_BASE_URL, "n8n base URL"),
     ("N8N_API_KEY", N8N_API_KEY, "n8n API key"),

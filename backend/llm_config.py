@@ -49,20 +49,38 @@ def resolve_llm_config() -> tuple[str, str, str, str]:
 
 
 def patch_llm_node(node, base_url, api_key, model):
+    """Patch LLM credential placeholders in an HTTP Request node.
+    Handles both old (typeVersion 2) and new (typeVersion 4+) formats."""
     if node.get("type") != "n8n-nodes-base.httpRequest":
         return
+
     params = node.setdefault("parameters", {})
-    params["url"] = f"{base_url}/chat/completions"
-    for field in ("bodyParametersJson", "jsonBody"):
-        if field in params:
+
+    # Patch URL
+    if params.get("url") == "REPLACE_LLM_URL":
+        params["url"] = f"{base_url.rstrip('/')}/chat/completions"
+
+    # Old format (typeVersion 2): string-based fields
+    for field in ("headerParametersJson", "bodyParametersJson"):
+        if field in params and isinstance(params[field], str):
+            params[field] = params[field].replace("REPLACE_LLM_KEY", api_key)
             params[field] = params[field].replace("REPLACE_LLM_MODEL", model)
-    if "headerParametersJson" in params:
-        params["headerParametersJson"] = params["headerParametersJson"].replace(
-            "Bearer REPLACE_LLM_KEY", f"Bearer {api_key}"
-        )
-    for header in params.get("headerParameters", {}).get("parameters", []):
-        if header.get("name") == "Authorization":
-            header["value"] = f"Bearer {api_key}"
+
+    # New format (typeVersion 4+): structured fields
+    header_params = params.get("headerParameters", {})
+    if isinstance(header_params, dict):
+        for p in header_params.get("parameters", []):
+            if isinstance(p, dict) and isinstance(p.get("value"), str):
+                p["value"] = p["value"].replace("REPLACE_LLM_KEY", api_key)
+
+    json_body = params.get("jsonBody")
+    if isinstance(json_body, str):
+        params["jsonBody"] = json_body.replace("REPLACE_LLM_MODEL", model)
+        params["jsonBody"] = params["jsonBody"].replace("REPLACE_LLM_KEY", api_key)
+
+    # Normalize old requestMethod to method
+    if "requestMethod" in params and "method" not in params:
+        params["method"] = params.pop("requestMethod")
 
 
 async def fetch_models(base_url: str, api_key: str) -> list[str]:

@@ -1,6 +1,7 @@
 """n8n_client.py — everything related to talking to the n8n API + webhooks."""
 
 import asyncio
+import json
 from typing import Any
 
 import httpx
@@ -21,7 +22,10 @@ async def call_webhook(
     """POST to an n8n webhook and return (result, http_status)."""
     async with httpx.AsyncClient(timeout=timeout) as http:
         resp = await http.post(url, json={"task": task, "model": model})
-        data = unwrap(resp.json())
+        try:
+            data = unwrap(resp.json())
+        except (json.JSONDecodeError, ValueError):
+            return f"n8n error (HTTP {resp.status_code}): {resp.text[:200]}", resp.status_code
         return data.get("result", str(data)), resp.status_code
 
 
@@ -42,7 +46,11 @@ class N8NClient:
             resp = await http.post(
                 self._url("/api/v1/workflows"), json=workflow, headers=self.headers
             )
-            return resp.json()
+            resp.raise_for_status()
+            try:
+                return resp.json()
+            except (json.JSONDecodeError, ValueError):
+                return {"error": f"n8n returned non-JSON response (HTTP {resp.status_code}): {resp.text[:200]}"}
 
     async def list_workflows(self, timeout: float = 20.0) -> list:
         """GET /api/v1/workflows — full list (id, name, active, nodes, ...)."""
@@ -61,19 +69,34 @@ class N8NClient:
 
     async def activate(self, workflow_id: str, timeout: float = 20.0) -> None:
         async with httpx.AsyncClient(timeout=timeout) as http:
-            await http.post(
-                self._url(f"/api/v1/workflows/{workflow_id}/activate"),
-                headers=self.headers,
-            )
+            try:
+                resp = await http.post(
+                    self._url(f"/api/v1/workflows/{workflow_id}/activate"),
+                    headers=self.headers,
+                )
+                resp.raise_for_status()
+                return resp.json()
+            except httpx.HTTPStatusError as e:
+                print(f"[n8n_client] activate failed: {e}")
+                return {"error": str(e)}
 
-    def webhook_url(self, workflow: dict, default_path: str) -> str:
-        """Find the webhook node's path in a created workflow and build its URL."""
-        path = default_path
-        for node in workflow.get("nodes", []):
+    def webhook_url(self, workflow_or_created: dict, default_path: str) -> str:
+        """Build the full webhook URL. Tries to extract path from workflow nodes,
+        falls back to default_path."""
+        base = self.base_url.rstrip("/")
+
+        # Try to extract from the workflow's Webhook node
+        nodes = workflow_or_created.get("nodes", [])
+        for node in nodes:
             if node.get("type") == "n8n-nodes-base.webhook":
-                path = node.get("parameters", {}).get("path", default_path)
-                break
-        return f"{self.base_url}/webhook/{path}"
+                path = node.get("parameters", {}).get("path", "")
+                if path:
+                    return f"{base}/webhook/{path}"
+
+        # Fallback to provided path
+        if default_path.startswith("http"):
+            return default_path
+        return f"{base}/webhook/{default_path}"
 
     async def call_spawned(
         self,
@@ -93,7 +116,14 @@ class N8NClient:
             for _ in range(attempts):
                 try:
                     resp = await http.post(webhook_url, json={"task": task, "model": model})
-                    data = unwrap(resp.json())
+                    try:
+                        data = unwrap(resp.json())
+                    except (json.JSONDecodeError, ValueError):
+                        result, status = (
+                            f"n8n error (HTTP {resp.status_code}): {resp.text[:200]}",
+                            resp.status_code,
+                        )
+                        break
                     result, status = data.get("result", str(data)), resp.status_code
                 except httpx.ReadTimeout:
                     result, status = "ReadTimeout", 0
