@@ -85,7 +85,7 @@ async def chat_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     # Deploy to n8n
     yield _sse("status", {"stage": "built", "message": "Deploying workflow to n8n…"})
     client = N8NClient()
-    created = await client.create_workflow(workflow)
+    created = await client.create_workflow(workflow_builder.sanitize_for_n8n(workflow))
     workflow_id = created.get("id")
     if not workflow_id:
         error_detail = created.get("error", created.get("message", "Unknown error"))
@@ -130,6 +130,8 @@ async def models():
     provider, base_url, api_key, model = resolve_llm_config()
     try:
         model_ids = await fetch_models(base_url, api_key)
+        if model and model not in model_ids:
+            model_ids.insert(0, model)
     except Exception:
         model_ids = []
     return {

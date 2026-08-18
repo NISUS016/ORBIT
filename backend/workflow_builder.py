@@ -9,6 +9,26 @@ import uuid
 import config
 from llm_config import patch_llm_node
 
+ALLOWED_WORKFLOW_KEYS = {"name", "nodes", "connections", "settings"}
+ALLOWED_NODE_KEYS = {
+    "id", "name", "type", "typeVersion", "position", "parameters",
+    "webhookId", "credentials", "onError", "disabled", "notes", "notesInFlow",
+}
+
+
+def sanitize_for_n8n(workflow: dict) -> dict:
+    """Strip keys n8n's API schema rejects (e.g. 'summary') so that
+    POST /api/v1/workflows accepts the payload. Returns a NEW dict."""
+    clean = {k: v for k, v in workflow.items() if k in ALLOWED_WORKFLOW_KEYS}
+    nodes = clean.get("nodes")
+    if isinstance(nodes, list):
+        clean["nodes"] = [
+            {k: v for k, v in n.items() if k in ALLOWED_NODE_KEYS}
+            for n in nodes
+            if isinstance(n, dict)
+        ]
+    return clean
+
 
 def patch_credentials(workflow: dict, model: str | None = None) -> dict:
     """Patch LLM credentials into every placeholder node. Returns the workflow."""

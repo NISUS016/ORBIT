@@ -46,7 +46,13 @@ class N8NClient:
             resp = await http.post(
                 self._url("/api/v1/workflows"), json=workflow, headers=self.headers
             )
-            resp.raise_for_status()
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                return {
+                    "error": f"n8n {e.response.status_code}: "
+                             f"{e.response.text[:300]}"
+                }
             try:
                 return resp.json()
             except (json.JSONDecodeError, ValueError):
